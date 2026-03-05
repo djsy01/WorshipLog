@@ -28,9 +28,7 @@ dist/
 out/
 
 # 📦 패키지 매니저
-package-lock.json
 yarn.lock
-pnpm-lock.yaml
 
 # ================================
 # 🧪 테스트 및 빌드 결과물
@@ -89,6 +87,12 @@ app/expo-debug.log
 .gradle/
 local.properties
 *.keystore
+
+# Flutter
+.dort_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
 
 # ================================
 # 📝 기타 문서, 출력물
