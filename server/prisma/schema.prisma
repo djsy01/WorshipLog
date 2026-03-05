@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TeamRole {
+  leader
+  member
+}
+
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  passwordHash    String?  @map("password_hash")
+  name            String
+  profileImageUrl String?  @map("profile_image_url")
+  provider        String   @default("local")
+  providerId      String?  @map("provider_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  teamMemberships TeamMember[]
+  teamInvites     TeamInvite[]
+  songs           Song[]
+  contis          Conti[]
+  history         History[]
+  posts           CommunityPost[]
+  comments        CommunityComment[]
+  teams           Team[]
+
+  @@unique([provider, providerId])
+  @@map("users")
+}
+
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  creator User         @relation(fields: [createdBy], references: [id])
+  members TeamMember[]
+  invites TeamInvite[]
+  contis  Conti[]
+  history History[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String   @map("team_id")
+  userId   String   @map("user_id")
+  role     TeamRole @default(member)
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model TeamInvite {
+  id        String    @id @default(uuid())
+  teamId    String    @map("team_id")
+  token     String    @unique
+  createdBy String    @map("created_by")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("team_invites")
+}
+
+model Song {
+  id            String   @id @default(uuid())
+  title         String
+  artist        String?
+  defaultKey    String?  @map("default_key")
+  tempo         Int?
+  lyrics        String?
+  sheetMusicUrl String?  @map("sheet_music_url")
+  createdBy     String?  @map("created_by")
+  isPublic      Boolean  @default(false) @map("is_public")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  creator    User?       @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  contiSongs ContiSong[]
+
+  @@map("songs")
+}
+
+model Conti {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  teamId      String?   @map("team_id")
+  createdBy   String    @map("created_by")
+  worshipDate DateTime? @map("worship_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  team    Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  creator User        @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  songs   ContiSong[]
+  history History[]
+
+  @@map("contis")
+}
+
+model ContiSong {
+  id         String  @id @default(uuid())
+  contiId    String  @map("conti_id")
+  songId     String  @map("song_id")
+  key        String?
+  orderIndex Int     @default(0) @map("order_index")
+  note       String?
+
+  conti Conti @relation(fields: [contiId], references: [id], onDelete: Cascade)
+  song  Song  @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([contiId, orderIndex])
+  @@map("conti_songs")
+}
+
+model History {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  teamId      String?   @map("team_id")
+  contiId     String?   @map("conti_id")
+  worshipDate DateTime? @map("worship_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team  Team?  @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  conti Conti? @relation(fields: [contiId], references: [id], onDelete: SetNull)
+
+  @@map("history")
+}
+
+model CommunityPost {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments CommunityComment[]
+
+  @@map("community_posts")
+}
+
+model CommunityComment {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("community_comments")
+}
