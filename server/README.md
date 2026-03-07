@@ -1,102 +1,110 @@
 # WorshipLog – Server (NestJS)
 
-NestJS + TypeScript REST API server
+NestJS + TypeScript REST API 서버
 
 ---
 
-## Tech Stack
+## 기술 스택
 
-| Item      | Technology                        |
-| --------- | --------------------------------- |
-| Framework | NestJS                            |
-| Language  | TypeScript                        |
-| ORM       | Prisma                            |
-| Database  | PostgreSQL (Supabase)             |
-| Cache     | Redis (JWT Refresh Token storage) |
-| Auth      | JWT (Access 15m + Refresh 7d)     |
+| 항목      | 기술                                      |
+| --------- | ----------------------------------------- |
+| Framework | NestJS                                    |
+| Language  | TypeScript                                |
+| ORM       | Prisma v7 (`@prisma/adapter-pg`)          |
+| Database  | PostgreSQL (Supabase, Supavisor 풀러)     |
+| Cache     | Redis (Upstash) — Refresh Token, 이메일 인증 토큰 |
+| Auth      | JWT (Access 15m + Refresh 7d)             |
+| Email     | Nodemailer + Gmail SMTP                   |
 
 ---
 
-## Directory Structure
+## 디렉토리 구조
 
 ```text
 server/src/
-├── auth/                   # Register, Login, Logout, Token refresh
+├── auth/                   # 인증 전체
 │   ├── dto/                # RegisterDto, LoginDto
 │   └── strategies/         # jwt.strategy, jwt-refresh.strategy
 ├── common/
 │   ├── guards/             # JwtAuthGuard, JwtRefreshGuard
-│   ├── decorators/         # @CurrentUser
-│   └── data/
-│       └── bible.json      # Full Bible (66 books, ~7MB)
+│   └── decorators/         # @CurrentUser
+├── mail/                   # 이메일 발송 (MailService)
 ├── health/                 # GET /api/health
 ├── prisma/                 # PrismaService
 ├── redis/                  # RedisService
-├── users/                  # User CRUD (WIP)
 ├── app.module.ts
 └── main.ts
 ```
 
 ---
 
-## Environment Variables
+## 환경 변수
 
-Create `server/.env`:
+`server/.env` 파일 생성:
 
 ```env
-DATABASE_URL=postgresql://...
+DATABASE_URL=postgresql://postgres.[project-ref]:[password]@aws-x-xx.pooler.supabase.com:6543/postgres
 
-JWT_ACCESS_SECRET=your_access_secret
+JWT_ACCESS_SECRET=<64바이트 랜덤 hex>
 JWT_ACCESS_EXPIRES_IN=15m
-
-JWT_REFRESH_SECRET=your_refresh_secret
+JWT_REFRESH_SECRET=<64바이트 랜덤 hex>
 JWT_REFRESH_EXPIRES_IN=7d
 
-REDIS_HOST=localhost
+REDIS_HOST=<upstash-host>
 REDIS_PORT=6379
+REDIS_PASSWORD=<upstash-password>
+REDIS_TLS=true
 
-CLIENT_URL=http://localhost:3001
 PORT=3000
+CLIENT_URL=http://localhost:3001
+
+GMAIL_USER=your@gmail.com
+GMAIL_APP_PASSWORD=<앱비밀번호 16자리, 공백/대시 제거>
+```
+
+> `DATABASE_URL`은 Supabase pooler URL 사용 (`?pgbouncer=true` 파라미터 제거)
+
+---
+
+## 실행 방법
+
+```bash
+npm install
+npm run start:dev    # 개발 (hot reload) — http://localhost:3000/api
+npm run build
+npm run start:prod
 ```
 
 ---
 
-## Running the Server
+## API 엔드포인트
 
-```bash
-npm install           # install dependencies
-npm run start:dev     # development (hot reload)
-npm run build         # production build
-npm run start:prod    # production run
-```
-
-## Tests
-
-```bash
-npm run test        # unit tests
-npm run test:e2e    # e2e tests
-npm run test:cov    # coverage
-```
-
----
-
-## API Endpoints
-
-> All routes are prefixed with `/api`
+> 모든 라우트는 `/api` 접두사 적용
 
 ### Auth — `/api/auth`
 
-| Method | Path                | Auth          | Description                             |
-| ------ | ------------------- | ------------- | --------------------------------------- |
-| POST   | /api/auth/register  | -             | Register with email, password, name     |
-| POST   | /api/auth/login     | -             | Login → accessToken + refreshToken      |
-| POST   | /api/auth/logout    | AccessToken   | Delete refreshToken from Redis          |
-| POST   | /api/auth/refresh   | RefreshToken  | Reissue accessToken + refreshToken      |
+| Method | Path                          | 인증         | 설명                                      |
+| ------ | ----------------------------- | ------------ | ----------------------------------------- |
+| POST   | /api/auth/register            | -            | 회원가입 → 인증 이메일 발송               |
+| POST   | /api/auth/login               | -            | 로그인 → accessToken + refreshToken       |
+| POST   | /api/auth/verify-email?token= | -            | 이메일 인증 토큰 확인 → 토큰 발급         |
+| POST   | /api/auth/resend-verification | -            | 인증 이메일 재발송                        |
+| POST   | /api/auth/logout              | AccessToken  | Redis에서 refreshToken 삭제               |
+| POST   | /api/auth/refresh             | RefreshToken | accessToken + refreshToken 재발급         |
 
 ### Health
 
-| Method | Path        | Description         |
-| ------ | ----------- | ------------------- |
-| GET    | /api/health | Server health check |
+| Method | Path        | 설명              |
+| ------ | ----------- | ----------------- |
+| GET    | /api/health | 서버 상태 확인    |
 
-> Songs, Contis, Teams, History, Community, Bible endpoints — coming soon
+> Songs, Contis, Teams, History, Community, Bible 엔드포인트 — Phase 2/3 예정
+
+---
+
+## Redis 키 구조
+
+| 키                      | 값                  | TTL   |
+| ----------------------- | ------------------- | ----- |
+| `refresh:{userId}`      | bcrypt 해시된 토큰  | 7일   |
+| `email_verify:{token}`  | userId              | 24시간 |

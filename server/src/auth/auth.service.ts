@@ -2,14 +2,21 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+
+const EMAIL_VERIFY_TTL = 60 * 60 * 24; // 24시간
 
 @Injectable()
 export class AuthService {
@@ -18,6 +25,7 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
     private redis: RedisService,
+    private mail: MailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -31,9 +39,8 @@ export class AuthService {
       data: { email: dto.email, passwordHash, name: dto.name },
     });
 
-    const tokens = await this.generateTokens(user.id, user.email);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
-    return { user: this.sanitize(user), ...tokens };
+    await this.sendVerificationToken(user.id, user.email, user.name);
+    return { message: '가입이 완료되었습니다. 이메일을 확인해주세요.' };
   }
 
   async login(dto: LoginDto) {
@@ -47,9 +54,37 @@ export class AuthService {
     if (!valid)
       throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
 
+    if (!user.emailVerified)
+      throw new ForbiddenException('이메일 인증이 필요합니다. 메일함을 확인해주세요.');
+
     const tokens = await this.generateTokens(user.id, user.email);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
     return { user: this.sanitize(user), ...tokens };
+  }
+
+  async verifyEmail(token: string) {
+    const userId = await this.redis.get(`email_verify:${token}`);
+    if (!userId) throw new BadRequestException('유효하지 않거나 만료된 인증 링크입니다.');
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
+
+    await this.redis.del(`email_verify:${token}`);
+
+    const tokens = await this.generateTokens(user.id, user.email);
+    await this.saveRefreshToken(user.id, tokens.refreshToken);
+    return { user: this.sanitize(user), ...tokens };
+  }
+
+  async resendVerification(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) throw new NotFoundException('존재하지 않는 이메일입니다.');
+    if (user.emailVerified) throw new BadRequestException('이미 인증된 이메일입니다.');
+
+    await this.sendVerificationToken(user.id, user.email, user.name);
+    return { message: '인증 이메일을 재발송했습니다.' };
   }
 
   async logout(userId: string) {
@@ -72,6 +107,12 @@ export class AuthService {
     return tokens;
   }
 
+  private async sendVerificationToken(userId: string, email: string, name: string) {
+    const token = crypto.randomBytes(32).toString('hex');
+    await this.redis.set(`email_verify:${token}`, userId, EMAIL_VERIFY_TTL);
+    await this.mail.sendVerificationEmail(email, name, token);
+  }
+
   private async generateTokens(userId: string, email: string) {
     const payload = { sub: userId, email };
     const [accessToken, refreshToken] = await Promise.all([
@@ -89,7 +130,7 @@ export class AuthService {
 
   private async saveRefreshToken(userId: string, token: string) {
     const hashed = await bcrypt.hash(token, 10);
-    const ttl = 7 * 24 * 60 * 60; // 7일 (초)
+    const ttl = 7 * 24 * 60 * 60;
     await this.redis.set(`refresh:${userId}`, hashed, ttl);
   }
 
