@@ -16,11 +16,13 @@ model User {
   email           String   @unique
   passwordHash    String?  @map("password_hash")
   name            String
-  profileImageUrl String?  @map("profile_image_url")
-  provider        String   @default("local")
-  providerId      String?  @map("provider_id")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  profileImageUrl String?   @map("profile_image_url")
+  provider        String    @default("local")
+  providerId      String?   @map("provider_id")
+  emailVerified   Boolean   @default(false) @map("email_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   teamMemberships TeamMember[]
   teamInvites     TeamInvite[]
