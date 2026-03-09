@@ -15,6 +15,7 @@ NestJS + TypeScript REST API 서버
 | Cache     | Redis (Upstash) — Refresh Token, 이메일 인증 토큰 |
 | Auth      | JWT (Access 15m + Refresh 7d)             |
 | Email     | Nodemailer + Gmail SMTP                   |
+| 외부 API  | Spotify Web API (Client Credentials 방식) |
 
 ---
 
@@ -32,6 +33,10 @@ server/src/
 ├── health/                 # GET /api/health
 ├── prisma/                 # PrismaService
 ├── redis/                  # RedisService
+├── songs/                  # 찬양 CRUD
+│   └── dto/                # CreateSongDto, UpdateSongDto
+├── bible/                  # 오늘의 말씀 API
+├── spotify/                # Spotify 검색 연동
 ├── app.module.ts
 └── main.ts
 ```
@@ -60,6 +65,9 @@ CLIENT_URL=http://localhost:3001
 
 GMAIL_USER=your@gmail.com
 GMAIL_APP_PASSWORD=<앱비밀번호 16자리, 공백/대시 제거>
+
+SPOTIFY_CLIENT_ID=<Spotify 앱 Client ID>
+SPOTIFY_CLIENT_SECRET=<Spotify 앱 Client Secret>
 ```
 
 > `DATABASE_URL`은 Supabase pooler URL 사용 (`?pgbouncer=true` 파라미터 제거)
@@ -92,13 +100,35 @@ npm run start:prod
 | POST   | /api/auth/logout              | AccessToken  | Redis에서 refreshToken 삭제               |
 | POST   | /api/auth/refresh             | RefreshToken | accessToken + refreshToken 재발급         |
 
+### Songs — `/api/songs`
+
+| Method | Path            | 인증        | 설명                              |
+| ------ | --------------- | ----------- | --------------------------------- |
+| GET    | /api/songs      | AccessToken | 내 찬양 목록 조회 (검색 지원)     |
+| POST   | /api/songs      | AccessToken | 찬양 추가                         |
+| GET    | /api/songs/:id  | AccessToken | 찬양 단건 조회                    |
+| PATCH  | /api/songs/:id  | AccessToken | 찬양 수정                         |
+| DELETE | /api/songs/:id  | AccessToken | 찬양 삭제                         |
+
+### Bible — `/api/bible`
+
+| Method | Path             | 인증        | 설명              |
+| ------ | ---------------- | ----------- | ----------------- |
+| GET    | /api/bible/today | AccessToken | 오늘의 말씀 조회  |
+
+### Spotify — `/api/spotify`
+
+| Method | Path                   | 인증        | 설명                               |
+| ------ | ---------------------- | ----------- | ---------------------------------- |
+| GET    | /api/spotify/search?q= | AccessToken | Spotify 곡 검색 (제목·아티스트 반환) |
+
+> Contis, Teams, History, Community 엔드포인트 — Phase 2/3 예정
+
 ### Health
 
 | Method | Path        | 설명              |
 | ------ | ----------- | ----------------- |
 | GET    | /api/health | 서버 상태 확인    |
-
-> Songs, Contis, Teams, History, Community, Bible 엔드포인트 — Phase 2/3 예정
 
 ---
 
@@ -108,3 +138,15 @@ npm run start:prod
 | ----------------------- | ------------------- | ----- |
 | `refresh:{userId}`      | bcrypt 해시된 토큰  | 7일   |
 | `email_verify:{token}`  | userId              | 24시간 |
+
+---
+
+## DB 주의사항
+
+- `songs` 테이블에 `scripture_ref` 컬럼이 없으면 수동으로 추가 필요:
+
+  ```sql
+  ALTER TABLE songs ADD COLUMN IF NOT EXISTS scripture_ref TEXT;
+  ```
+
+- Spotify `audio-features` API는 2024년 이후 신규 앱에서 차단됨 → BPM은 수동 입력

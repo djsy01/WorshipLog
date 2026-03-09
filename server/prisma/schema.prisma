@@ -90,6 +90,7 @@ model Song {
   defaultKey    String?  @map("default_key")
   tempo         Int?
   lyrics        String?
+  scriptureRef  String?  @map("scripture_ref")
   sheetMusicUrl String?  @map("sheet_music_url")
   createdBy     String?  @map("created_by")
   isPublic      Boolean  @default(false) @map("is_public")
