@@ -62,14 +62,18 @@
 2. 서버 프로젝트 초기화 및 REST API 설계 ✅
 3. 인증 시스템 구현 (로그인/회원가입, JWT, 이메일 인증) ✅
 
-### Phase 2 — 핵심 기능
+### Phase 2 — 핵심 기능 (진행 중)
 
 1. 클라이언트 프로젝트 초기화 및 라우팅 구성 ✅
 2. 로그인·회원가입 UI + 이메일 인증 플로우 ✅
 3. 라이트/다크 모드 ✅
-4. 찬양 검색 및 콘티 생성 기능
-5. 악보 업로드 (Supabase Storage 연동)
-6. PDF 출력 기능 (jsPDF or PDFkit)
+4. **찬양 CRUD API + 검색 UI** ✅
+   - Spotify API 연동 (곡명/아티스트 자동완성) ✅
+   - 오늘의 말씀 카드 + 구절 기반 찬양 찾기 ✅
+   - 찬양 추가 / 수정 / 삭제 ✅
+5. 콘티 생성·편집 페이지 / conti_songs 순서 관리
+6. 악보 업로드 (Supabase Storage 연동)
+7. PDF 출력 기능 (jsPDF or PDFkit)
 
 ### Phase 3 — 팀 & 커뮤니티
 
@@ -94,7 +98,7 @@
 | **3/5 (목)** ✅  | DB 스키마 + 마이그레이션 / NestJS 초기화 + Prisma 연동 / JWT + Redis 인증 API                       | 완료    |
 | **3/6 (금)** ✅  | Next.js 초기화 + 레이아웃·라우팅 / 로그인·회원가입 UI / 이메일 인증 / 라이트·다크 모드              | 완료    |
 | **3/7~8**        | 주말                                                                                                | —       |
-| **3/9 (월)**     | Songs CRUD API + 찬양 검색 UI / 말씀 JSON 연동                                                      | 예정    |
+| **3/9 (월)** ✅  | Songs CRUD API + 찬양 검색 UI / Spotify 연동 / 말씀 JSON 연동 / 파비콘                              | 완료    |
 | **3/10 (화)**    | Contis CRUD API / 콘티 생성·편집 페이지 / conti_songs 순서 관리                                     | 예정    |
 | **3/11 (수)**    | Supabase Storage 악보 업로드 / 팀 생성·초대 API / 팀 페이지 UI                                      | 예정    |
 | **3/12 (목)**    | 히스토리 API + UI / PDF 출력 / 커뮤니티 게시글·댓글 API                                             | 예정    |
