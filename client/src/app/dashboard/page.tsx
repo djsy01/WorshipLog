@@ -14,8 +14,10 @@ interface User {
 
 const MENU_ITEMS = [
   { title: '찬양 검색', desc: '곡명, 키, BPM으로 찬양을 찾아보세요', icon: '🎵', href: '/dashboard/songs', ready: true },
-  { title: '콘티 만들기', desc: '예배 콘티를 빠르게 구성해보세요', icon: '📋', href: '/dashboard/contis', ready: false },
-  { title: '히스토리', desc: '지난 예배 기록을 확인해보세요', icon: '📅', href: '/dashboard/history', ready: false },
+  { title: '콘티', desc: '예배 콘티를 빠르게 구성해보세요', icon: '📋', href: '/dashboard/contis', ready: true },
+  { title: '팀스페이스', desc: '팀원과 콘티를 공유하고 협업하세요', icon: '👥', href: '/dashboard/team', ready: true },
+  { title: '말씀 묵상', desc: '매일 랜덤 말씀으로 묵상을 시작하세요', icon: '📖', href: '/dashboard/bible', ready: false },
+  { title: '커뮤니티', desc: '기독교인들과 찬양·신앙을 나눠보세요', icon: '✝️', href: '/dashboard/community', ready: false },
 ];
 
 export default function DashboardPage() {

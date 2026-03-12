@@ -100,6 +100,7 @@ export interface Song {
   tempo: number | null;
   lyrics: string | null;
   scriptureRef: string | null;
+  sheetMusicUrl: string | null;
   isPublic: boolean;
   createdBy: string | null;
   createdAt: string;
@@ -138,6 +139,25 @@ export const songsApi = {
       method: 'DELETE',
       headers: authHeaders(token),
     }),
+
+  uploadSheet: async (token: string, songId: string, file: File): Promise<Song> => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_URL}/songs/${songId}/sheet`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message ?? '업로드 실패');
+    return data as Song;
+  },
+
+  deleteSheet: (token: string, songId: string) =>
+    request<Song>(`/songs/${songId}/sheet`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
 };
 
 export interface BibleVerse {
@@ -154,6 +174,112 @@ export const bibleApi = {
     request<BibleVerse>('/bible/random', { headers: authHeaders(token) }),
 };
 
+export interface ContiSong {
+  id: string;
+  contiId: string;
+  songId: string;
+  key: string | null;
+  note: string | null;
+  orderIndex: number;
+  song: Song;
+}
+
+export interface Conti {
+  id: string;
+  title: string;
+  description: string | null;
+  worshipDate: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  songs: ContiSong[];
+}
+
+export const contisApi = {
+  list: (token: string) =>
+    request<Conti[]>('/contis', { headers: authHeaders(token) }),
+
+  get: (token: string, id: string) =>
+    request<Conti>(`/contis/${id}`, { headers: authHeaders(token) }),
+
+  create: (token: string, body: { title: string; description?: string; worshipDate?: string }) =>
+    request<Conti>('/contis', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  update: (token: string, id: string, body: Partial<{ title: string; description: string; worshipDate: string }>) =>
+    request<Conti>(`/contis/${id}`, {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  remove: (token: string, id: string) =>
+    request<{ message: string }>(`/contis/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
+
+  addSong: (token: string, contiId: string, body: { songId: string; key?: string; note?: string }) =>
+    request<ContiSong>(`/contis/${contiId}/songs`, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  updateSong: (token: string, contiId: string, contiSongId: string, body: { key?: string; note?: string }) =>
+    request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}`, {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  removeSong: (token: string, contiId: string, contiSongId: string) =>
+    request<{ message: string }>(`/contis/${contiId}/songs/${contiSongId}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
+
+  reorderSongs: (token: string, contiId: string, ids: string[]) =>
+    request<Conti>(`/contis/${contiId}/songs/reorder`, {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify({ ids }),
+    }),
+};
+
+export interface HistoryRecord {
+  id: string;
+  userId: string;
+  contiId: string | null;
+  worshipDate: string | null;
+  createdAt: string;
+  conti: Conti | null;
+}
+
+export const historyApi = {
+  list: (token: string) =>
+    request<HistoryRecord[]>('/history', { headers: authHeaders(token) }),
+
+  get: (token: string, id: string) =>
+    request<HistoryRecord>(`/history/${id}`, { headers: authHeaders(token) }),
+
+  create: (token: string, body: { contiId?: string; worshipDate?: string }) =>
+    request<HistoryRecord>('/history', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  remove: (token: string, id: string) =>
+    request<{ message: string }>(`/history/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
+};
+
 export interface SpotifyTrack {
   id: string;
   title: string;
@@ -165,6 +291,62 @@ export interface SpotifyTrack {
 export const spotifyApi = {
   search: (token: string, q: string) =>
     request<SpotifyTrack[]>(`/spotify/search?q=${encodeURIComponent(q)}`, {
+      headers: authHeaders(token),
+    }),
+};
+
+export interface TeamMember {
+  id: string;
+  userId: string;
+  role: 'leader' | 'member';
+  joinedAt: string;
+  user: { id: string; name: string; email: string };
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  description: string | null;
+  createdBy: string;
+  createdAt: string;
+  members: TeamMember[];
+}
+
+export const teamsApi = {
+  list: (token: string) =>
+    request<Team[]>('/teams', { headers: authHeaders(token) }),
+
+  get: (token: string, id: string) =>
+    request<Team>(`/teams/${id}`, { headers: authHeaders(token) }),
+
+  create: (token: string, body: { name: string; description?: string }) =>
+    request<Team>('/teams', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  remove: (token: string, id: string) =>
+    request<{ message: string }>(`/teams/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
+
+  createInvite: (token: string, teamId: string) =>
+    request<{ token: string; expiresAt: string }>(`/teams/${teamId}/invite`, {
+      method: 'POST',
+      headers: authHeaders(token),
+    }),
+
+  join: (token: string, inviteToken: string) =>
+    request<Team>(`/teams/join/${inviteToken}`, {
+      method: 'POST',
+      headers: authHeaders(token),
+    }),
+
+  leave: (token: string, teamId: string) =>
+    request<{ message: string }>(`/teams/${teamId}/leave`, {
+      method: 'DELETE',
       headers: authHeaders(token),
     }),
 };

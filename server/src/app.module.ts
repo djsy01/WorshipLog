@@ -6,6 +6,9 @@ import { AuthModule } from './auth/auth.module';
 import { SongsModule } from './songs/songs.module';
 import { BibleModule } from './bible/bible.module';
 import { SpotifyModule } from './spotify/spotify.module';
+import { ContisModule } from './contis/contis.module';
+import { HistoryModule } from './history/history.module';
+import { TeamsModule } from './teams/teams.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -17,6 +20,9 @@ import { HealthController } from './health/health.controller';
     SongsModule,
     BibleModule,
     SpotifyModule,
+    ContisModule,
+    HistoryModule,
+    TeamsModule,
   ],
   controllers: [HealthController],
 })

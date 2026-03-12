@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { songsApi, bibleApi, spotifyApi, Song, BibleVerse, SpotifyTrack } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
@@ -43,6 +43,10 @@ export default function SongsPage() {
   // 말씀 구절 피커 (모달 내)
   const [showVersePicker, setShowVersePicker] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
+
+  // 악보 업로드
+  const [uploadingSheet, setUploadingSheet] = useState(false);
+  const sheetInputRef = useRef<HTMLInputElement>(null);
 
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
@@ -177,6 +181,36 @@ export default function SongsPage() {
       alert((e as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editingSong || !e.target.files?.[0]) return;
+    const token = getToken();
+    if (!token) return;
+    setUploadingSheet(true);
+    try {
+      const updated = await songsApi.uploadSheet(token, editingSong.id, e.target.files[0]);
+      setEditingSong(updated);
+      setSongs((prev) => prev.map((s) => s.id === updated.id ? updated : s));
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setUploadingSheet(false);
+      if (sheetInputRef.current) sheetInputRef.current.value = '';
+    }
+  };
+
+  const handleSheetDelete = async () => {
+    if (!editingSong || !confirm('악보를 삭제할까요?')) return;
+    const token = getToken();
+    if (!token) return;
+    try {
+      const updated = await songsApi.deleteSheet(token, editingSong.id);
+      setEditingSong(updated);
+      setSongs((prev) => prev.map((s) => s.id === updated.id ? updated : s));
+    } catch (err) {
+      alert((err as Error).message);
     }
   };
 
@@ -491,6 +525,55 @@ export default function SongsPage() {
                 />
                 공개 찬양 (다른 사용자도 검색 가능)
               </label>
+
+              {/* 악보 업로드 - 수정 모드에서만 */}
+              {editingSong && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
+                  <p className="mb-2 text-xs font-semibold text-blue-700 dark:text-blue-400">📄 악보</p>
+                  {editingSong.sheetMusicUrl ? (
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={editingSong.sheetMusicUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 truncate text-sm text-blue-600 underline dark:text-blue-400"
+                      >
+                        악보 보기
+                      </a>
+                      <button
+                        type="button"
+                        onClick={handleSheetDelete}
+                        className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        삭제
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => sheetInputRef.current?.click()}
+                        className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                      >
+                        교체
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => sheetInputRef.current?.click()}
+                      disabled={uploadingSheet}
+                      className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-sm text-blue-500 hover:bg-blue-100 disabled:opacity-50 dark:border-blue-700 dark:hover:bg-blue-900/30"
+                    >
+                      {uploadingSheet ? '업로드 중...' : '+ PDF 또는 이미지 업로드'}
+                    </button>
+                  )}
+                  <input
+                    ref={sheetInputRef}
+                    type="file"
+                    accept=".pdf,image/*"
+                    className="hidden"
+                    onChange={handleSheetUpload}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="mt-5 flex gap-3">
