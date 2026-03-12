@@ -100,7 +100,7 @@ export interface Song {
   tempo: number | null;
   lyrics: string | null;
   scriptureRef: string | null;
-  sheetMusicUrl: string | null;
+  sheetMusicUrl?: string | null;
   isPublic: boolean;
   createdBy: string | null;
   createdAt: string;
@@ -248,6 +248,7 @@ export const contisApi = {
       headers: authHeaders(token),
       body: JSON.stringify({ ids }),
     }),
+
 };
 
 export interface HistoryRecord {
