@@ -369,4 +369,16 @@ export const teamsApi = {
 
   getContis: (token: string, teamId: string) =>
     request<Conti[]>(`/teams/${teamId}/contis`, { headers: authHeaders(token) }),
+
+  kickMember: (token: string, teamId: string, memberId: string) =>
+    request<{ message: string }>(`/teams/${teamId}/members/${memberId}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
+
+  transferLeader: (token: string, teamId: string, memberId: string) =>
+    request<Team>(`/teams/${teamId}/members/${memberId}/transfer`, {
+      method: 'PATCH',
+      headers: authHeaders(token),
+    }),
 };

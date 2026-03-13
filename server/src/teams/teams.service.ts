@@ -114,6 +114,40 @@ export class TeamsService {
     return { message: '팀에서 나갔습니다.' };
   }
 
+  // 멤버 추방 (팀장만)
+  async kickMember(userId: string, teamId: string, targetUserId: string) {
+    const team = await this.prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) throw new NotFoundException('팀을 찾을 수 없습니다.');
+    if (team.createdBy !== userId) throw new ForbiddenException('팀장만 멤버를 추방할 수 있습니다.');
+    if (targetUserId === userId) throw new BadRequestException('자기 자신을 추방할 수 없습니다.');
+
+    await this.prisma.teamMember.delete({
+      where: { teamId_userId: { teamId, userId: targetUserId } },
+    });
+    return { message: '추방되었습니다.' };
+  }
+
+  // 방장 이전 (팀장만)
+  async transferLeader(userId: string, teamId: string, targetUserId: string) {
+    const team = await this.prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) throw new NotFoundException('팀을 찾을 수 없습니다.');
+    if (team.createdBy !== userId) throw new ForbiddenException('팀장만 방장을 이전할 수 있습니다.');
+    if (targetUserId === userId) throw new BadRequestException('자기 자신에게 이전할 수 없습니다.');
+
+    const targetMember = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId: targetUserId } },
+    });
+    if (!targetMember) throw new NotFoundException('해당 멤버가 없습니다.');
+
+    await this.prisma.$transaction([
+      this.prisma.team.update({ where: { id: teamId }, data: { createdBy: targetUserId } }),
+      this.prisma.teamMember.update({ where: { teamId_userId: { teamId, userId } }, data: { role: 'member' } }),
+      this.prisma.teamMember.update({ where: { teamId_userId: { teamId, userId: targetUserId } }, data: { role: 'leader' } }),
+    ]);
+
+    return this.prisma.team.findUnique({ where: { id: teamId }, include: this.teamInclude() });
+  }
+
   async getTeamContis(userId: string, teamId: string) {
     const member = await this.prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },

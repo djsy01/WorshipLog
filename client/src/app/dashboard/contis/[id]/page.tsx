@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { contisApi, teamsApi, songsApi, Conti, ContiSong, Song, Team } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import PdfSheetViewer from '@/components/PdfSheetViewer';
@@ -11,7 +11,6 @@ const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', '
 export default function ContiEditPage() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   const contiId = params.id as string;
 
   const [conti, setConti] = useState<Conti | null>(null);
@@ -24,8 +23,9 @@ export default function ContiEditPage() {
   const [savingInfo, setSavingInfo] = useState(false);
 
   // 곡 추가 패널 (새 콘티 생성 직후엔 자동 오픈)
-  const [showAddSong, setShowAddSong] = useState(searchParams.get('new') === 'true');
+  const [showAddSong, setShowAddSong] = useState(false);
   const [allSongs, setAllSongs] = useState<Song[]>([]);
+  const [loadingSongs, setLoadingSongs] = useState(false);
   const [songSearch, setSongSearch] = useState('');
   const [addingKey, setAddingKey] = useState('');
   const [addingNote, setAddingNote] = useState('');
@@ -116,8 +116,13 @@ export default function ContiEditPage() {
   const loadSongs = useCallback(async () => {
     const token = getToken();
     if (!token) return;
-    const data = await songsApi.list(token);
-    setAllSongs(data);
+    setLoadingSongs(true);
+    try {
+      const data = await songsApi.list(token);
+      setAllSongs(data);
+    } finally {
+      setLoadingSongs(false);
+    }
   }, [getToken]);
 
   const handleOpenAddSong = () => {
@@ -394,10 +399,10 @@ export default function ContiEditPage() {
       <div className="print:hidden">
         <AppHeader page="콘티 편집" />
 
-        <main className="mx-auto max-w-3xl px-6 py-8">
+        <main className="mx-auto max-w-5xl px-6 py-10">
           {/* 뒤로가기 */}
           <button
-            onClick={() => router.push('/dashboard/contis')}
+            onClick={() => router.back()}
             className="print:hidden mb-6 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
@@ -462,13 +467,13 @@ export default function ContiEditPage() {
             ) : (
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">{conti.title}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{conti.title}</h1>
                   {conti.worshipDate && (
-                    <p className="mt-1 text-sm text-violet-500 dark:text-violet-400">
+                    <p className="mt-1 text-base text-violet-500 dark:text-violet-400">
                       {new Date(conti.worshipDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                   )}
-                  {conti.description && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{conti.description}</p>}
+                  {conti.description && <p className="mt-2 text-gray-500 dark:text-gray-400">{conti.description}</p>}
                   {/* 팀 공유 상태 뱃지 */}
                   {conti.teamId && (
                     <div className="mt-2 flex items-center gap-2">
@@ -515,7 +520,7 @@ export default function ContiEditPage() {
 
           {/* 찬양 목록 */}
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
               찬양 목록 <span className="ml-1 text-sm font-normal text-gray-400">({conti.songs.length}곡)</span>
             </h2>
             <div className="flex gap-2">
@@ -548,15 +553,15 @@ export default function ContiEditPage() {
               {conti.songs.map((cs, index) => (
                 <div
                   key={cs.id}
-                  className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
+                  className="flex items-center gap-3 rounded-xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
                 >
                   {/* 순서 번호 */}
-                  <span className="w-6 shrink-0 text-center text-sm font-bold text-gray-300 dark:text-gray-600">{index + 1}</span>
+                  <span className="w-7 shrink-0 text-center font-bold text-gray-300 dark:text-gray-600">{index + 1}</span>
 
                   {/* 곡 정보 */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white">{cs.song.title}</span>
+                      <span className="text-base font-medium text-gray-900 dark:text-white">{cs.song.title}</span>
                       {cs.key && (
                         <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                           {cs.key}
@@ -680,8 +685,10 @@ export default function ContiEditPage() {
               />
 
               <div className="space-y-1">
-                {filteredSongs.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-gray-400">검색 결과가 없습니다.</p>
+                {loadingSongs ? (
+                  <p className="py-4 text-center text-sm text-gray-400">불러오는 중...</p>
+                ) : filteredSongs.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-gray-400">{songSearch ? '검색 결과가 없습니다.' : '등록된 찬양이 없습니다.'}</p>
                 ) : (
                   filteredSongs.map((song) => {
                     const alreadyAdded = addedSongIds.has(song.id);
