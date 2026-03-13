@@ -1,33 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter;
+  private resend: Resend;
 
   constructor(private config: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: this.config.get<string>('GMAIL_USER'),
-        pass: this.config.get<string>('GMAIL_APP_PASSWORD'),
-      },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
+    this.resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
   }
 
   async sendVerificationEmail(to: string, name: string, token: string) {
     const clientUrl = this.config.get<string>('CLIENT_URL') ?? 'http://localhost:3001';
     const verifyUrl = `${clientUrl}/verify-email/confirm?token=${token}`;
 
-    await this.transporter.sendMail({
-      from: `"WorshipLog" <${this.config.get('GMAIL_USER')}>`,
+    const { error } = await this.resend.emails.send({
+      from: 'WorshipLog <noreply@inho.pe.kr>',
       to,
       subject: '[WorshipLog] 이메일 인증을 완료해주세요',
       html: `
@@ -47,6 +36,8 @@ export class MailService {
         </div>
       `,
     });
+
+    if (error) throw new Error(error.message);
 
     this.logger.log(`Verification email sent to ${to}`);
   }
