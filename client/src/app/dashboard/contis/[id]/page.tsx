@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { contisApi, songsApi, Conti, ContiSong, Song } from '@/lib/api';
+import { contisApi, teamsApi, songsApi, Conti, ContiSong, Song, Team } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import PdfSheetViewer from '@/components/PdfSheetViewer';
 
@@ -38,6 +38,12 @@ export default function ContiEditPage() {
   const [editNote, setEditNote] = useState('');
   const [savingCs, setSavingCs] = useState(false);
 
+  // 팀 공유
+  const [myUserId, setMyUserId] = useState('');
+  const [myTeams, setMyTeams] = useState<Team[]>([]);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
   // 악보 업로드
   const [uploadingSheetId, setUploadingSheetId] = useState<string | null>(null);
   const sheetInputRef = useRef<HTMLInputElement>(null);
@@ -71,8 +77,41 @@ export default function ContiEditPage() {
   }, [getToken, contiId]);
 
   useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (stored) setMyUserId((JSON.parse(stored) as { id: string }).id);
+    const token = localStorage.getItem('accessToken');
+    if (token) teamsApi.list(token).then(setMyTeams).catch(() => null);
     loadConti();
   }, [loadConti]);
+
+  const handleShare = async (teamId: string) => {
+    const token = getToken();
+    if (!token) return;
+    setSharing(true);
+    try {
+      const updated = await contisApi.share(token, contiId, teamId);
+      setConti(updated);
+      setShowShareModal(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '공유 실패');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleUnshare = async () => {
+    const token = getToken();
+    if (!token) return;
+    setSharing(true);
+    try {
+      const updated = await contisApi.unshare(token, contiId);
+      setConti(updated);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '공유 해제 실패');
+    } finally {
+      setSharing(false);
+    }
+  };
 
   const loadSongs = useCallback(async () => {
     const token = getToken();
@@ -422,7 +461,7 @@ export default function ContiEditPage() {
               </form>
             ) : (
               <div className="flex items-start justify-between">
-                <div>
+                <div className="min-w-0 flex-1">
                   <h1 className="text-xl font-bold text-gray-900 dark:text-white">{conti.title}</h1>
                   {conti.worshipDate && (
                     <p className="mt-1 text-sm text-violet-500 dark:text-violet-400">
@@ -430,20 +469,46 @@ export default function ContiEditPage() {
                     </p>
                   )}
                   {conti.description && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{conti.description}</p>}
+                  {/* 팀 공유 상태 뱃지 */}
+                  {conti.teamId && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
+                        </svg>
+                        팀 공유 중
+                      </span>
+                      {conti.createdBy === myUserId && (
+                        <button
+                          onClick={handleUnshare}
+                          disabled={sharing}
+                          className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50"
+                        >
+                          공유 해제
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => setEditingInfo(true)}
-                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  {/* 팀 공유 버튼 (소유자만) */}
+                  {conti.createdBy === myUserId && !conti.teamId && myTeams.length > 0 && (
+                    <button
+                      onClick={() => setShowShareModal(true)}
+                      className="print:hidden rounded-lg px-2.5 py-1.5 text-xs font-medium text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                    >
+                      팀 공유
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setEditingInfo(true)}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -748,6 +813,40 @@ export default function ContiEditPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 팀 공유 모달 */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 dark:bg-gray-900">
+            <h2 className="mb-1 text-base font-bold text-gray-900 dark:text-white">팀에 공유</h2>
+            <p className="mb-4 text-xs text-gray-400">공유할 팀을 선택하세요. 팀원 모두가 이 콘티를 볼 수 있습니다.</p>
+            <div className="space-y-2">
+              {myTeams.map((team) => (
+                <button
+                  key={team.id}
+                  onClick={() => handleShare(team.id)}
+                  disabled={sharing}
+                  className="flex w-full items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-left transition hover:border-violet-400 hover:bg-violet-50 disabled:opacity-50 dark:border-gray-700 dark:hover:border-violet-500 dark:hover:bg-violet-900/20"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                    {team.name[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{team.name}</p>
+                    <p className="text-xs text-gray-400">{team.members.length}명</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowShareModal(false)}
+              className="mt-4 w-full rounded-lg border border-gray-200 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400"
+            >
+              취소
+            </button>
           </div>
         </div>
       )}

@@ -172,6 +172,8 @@ export const bibleApi = {
     request<BibleVerse>('/bible/today', { headers: authHeaders(token) }),
   random: (token: string) =>
     request<BibleVerse>('/bible/random', { headers: authHeaders(token) }),
+  searchByRef: (token: string, ref: string) =>
+    request<BibleVerse[]>(`/bible/search?ref=${encodeURIComponent(ref)}`, { headers: authHeaders(token) }),
 };
 
 export interface ContiSong {
@@ -189,10 +191,12 @@ export interface Conti {
   title: string;
   description: string | null;
   worshipDate: string | null;
+  teamId: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
   songs: ContiSong[];
+  creator?: { id: string; name: string };
 }
 
 export const contisApi = {
@@ -249,6 +253,18 @@ export const contisApi = {
       body: JSON.stringify({ ids }),
     }),
 
+  share: (token: string, contiId: string, teamId: string) =>
+    request<Conti>(`/contis/${contiId}/share`, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ teamId }),
+    }),
+
+  unshare: (token: string, contiId: string) =>
+    request<Conti>(`/contis/${contiId}/share`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
 };
 
 export interface HistoryRecord {
@@ -350,4 +366,7 @@ export const teamsApi = {
       method: 'DELETE',
       headers: authHeaders(token),
     }),
+
+  getContis: (token: string, teamId: string) =>
+    request<Conti[]>(`/teams/${teamId}/contis`, { headers: authHeaders(token) }),
 };
