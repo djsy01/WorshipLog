@@ -15,6 +15,7 @@ import { UpdateContiDto } from './dto/update-conti.dto';
 import { AddSongDto } from './dto/add-song.dto';
 import { UpdateContiSongDto } from './dto/update-conti-song.dto';
 import { ReorderSongsDto } from './dto/reorder-songs.dto';
+import { ShareContiDto } from './dto/share-conti.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 

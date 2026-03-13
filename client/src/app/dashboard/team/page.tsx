@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import { teamsApi, Team } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 
+type CommunityTab = 'feed' | 'conti';
+
 export default function TeamPage() {
   const router = useRouter();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [myUserId, setMyUserId] = useState('');
+  const [communityTab, setCommunityTab] = useState<CommunityTab>('feed');
 
   // 팀 생성 모달
   const [showCreate, setShowCreate] = useState(false);
@@ -122,30 +125,22 @@ export default function TeamPage() {
     }
   };
 
-  const inviteLink = inviteInfo
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/join/${inviteInfo.token}`
-    : '';
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <AppHeader page="팀스페이스" />
 
-      <main className="mx-auto max-w-3xl px-6 py-8">
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="mb-6 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-            <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/>
-          </svg>
-          대시보드로 돌아가기
-        </button>
-
+      <main className="mx-auto max-w-7xl px-6 py-8">
+        {/* 상단 헤더 */}
         <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">팀스페이스</h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">팀원과 콘티를 공유하고 협업하세요</p>
-          </div>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+              <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/>
+            </svg>
+            대시보드
+          </button>
           <div className="flex gap-2">
             <button
               onClick={() => setShowJoin(true)}
@@ -169,81 +164,156 @@ export default function TeamPage() {
           </div>
         )}
 
-        {loading ? (
-          <div className="flex justify-center py-20 text-gray-400">불러오는 중...</div>
-        ) : teams.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="mb-3 text-4xl">👥</div>
-            <p className="text-gray-500 dark:text-gray-400">아직 팀이 없습니다.</p>
-            <button onClick={() => setShowCreate(true)} className="mt-4 text-sm font-medium text-violet-600 hover:underline dark:text-violet-400">
-              첫 번째 팀 만들기
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {teams.map((team) => {
-              const isLeader = team.createdBy === myUserId;
-              return (
-                <div key={team.id} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
-                  <div className="mb-3 flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">{team.name}</h3>
-                        {isLeader && (
-                          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                            팀장
-                          </span>
-                        )}
-                      </div>
-                      {team.description && (
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{team.description}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      {isLeader && (
-                        <>
-                          <button
-                            onClick={() => handleCreateInvite(team.id)}
-                            className="rounded px-2 py-1 text-xs text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/20"
-                          >
-                            초대 링크
-                          </button>
-                          <button
-                            onClick={() => handleDelete(team.id, team.name)}
-                            className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          >
-                            삭제
-                          </button>
-                        </>
-                      )}
-                      {!isLeader && (
-                        <button
-                          onClick={() => handleLeave(team.id, team.name)}
-                          className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-                          나가기
-                        </button>
-                      )}
-                    </div>
-                  </div>
+        {/* 2단 레이아웃 */}
+        <div className="grid grid-cols-10 gap-6">
+          {/* ── 좌측: 내 스페이스 (3/10) ── */}
+          <aside className="col-span-10 md:col-span-3">
+            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+              <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">내 스페이스</h2>
+                <p className="mt-0.5 text-xs text-gray-400">참여 중인 팀 목록</p>
+              </div>
 
-                  {/* 멤버 목록 */}
-                  <div className="flex flex-wrap gap-2">
-                    {team.members.map((m) => (
-                      <div key={m.id} className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800">
-                        <div className="h-5 w-5 rounded-full bg-violet-200 text-center text-xs font-bold leading-5 text-violet-700 dark:bg-violet-800 dark:text-violet-300">
-                          {m.user.name[0]}
-                        </div>
-                        <span className="text-xs text-gray-700 dark:text-gray-300">{m.user.name}</span>
-                        {m.role === 'leader' && <span className="text-xs text-violet-400">★</span>}
-                      </div>
-                    ))}
-                  </div>
+              {loading ? (
+                <div className="flex justify-center py-12 text-sm text-gray-400">불러오는 중...</div>
+              ) : teams.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="mb-2 text-3xl">👥</div>
+                  <p className="text-xs text-gray-400">아직 팀이 없습니다.</p>
+                  <button
+                    onClick={() => setShowCreate(true)}
+                    className="mt-3 text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
+                  >
+                    첫 번째 팀 만들기
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ) : (
+                <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {teams.map((team) => {
+                    const isLeader = team.createdBy === myUserId;
+                    return (
+                      <li key={team.id} className="px-5 py-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate text-sm font-medium text-gray-900 dark:text-white">{team.name}</span>
+                              {isLeader && (
+                                <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                                  팀장
+                                </span>
+                              )}
+                            </div>
+                            {team.description && (
+                              <p className="mt-0.5 truncate text-xs text-gray-400">{team.description}</p>
+                            )}
+                            {/* 멤버 아바타 */}
+                            <div className="mt-2 flex -space-x-1">
+                              {team.members.slice(0, 5).map((m) => (
+                                <div
+                                  key={m.id}
+                                  title={m.user.name}
+                                  className="h-5 w-5 rounded-full bg-violet-200 text-center text-[10px] font-bold leading-5 text-violet-700 ring-2 ring-white dark:bg-violet-800 dark:text-violet-300 dark:ring-gray-900"
+                                >
+                                  {m.user.name[0]}
+                                </div>
+                              ))}
+                              {team.members.length > 5 && (
+                                <div className="h-5 w-5 rounded-full bg-gray-200 text-center text-[10px] leading-5 text-gray-500 ring-2 ring-white dark:bg-gray-700 dark:text-gray-400 dark:ring-gray-900">
+                                  +{team.members.length - 5}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* 액션 버튼 */}
+                          <div className="flex shrink-0 flex-col gap-1">
+                            {isLeader && (
+                              <>
+                                <button
+                                  onClick={() => handleCreateInvite(team.id)}
+                                  className="rounded px-2 py-1 text-[10px] text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                >
+                                  초대
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(team.id, team.name)}
+                                  className="rounded px-2 py-1 text-[10px] text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                >
+                                  삭제
+                                </button>
+                              </>
+                            )}
+                            {!isLeader && (
+                              <button
+                                onClick={() => handleLeave(team.id, team.name)}
+                                className="rounded px-2 py-1 text-[10px] text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                              >
+                                나가기
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </aside>
+
+          {/* ── 우측: 커뮤니티 (7/10) ── */}
+          <section className="col-span-10 md:col-span-7">
+            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+              {/* 탭 */}
+              <div className="flex border-b border-gray-100 dark:border-gray-800">
+                <button
+                  onClick={() => setCommunityTab('feed')}
+                  className={`px-5 py-4 text-sm font-medium transition ${
+                    communityTab === 'feed'
+                      ? 'border-b-2 border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+                >
+                  커뮤니티
+                </button>
+                <button
+                  onClick={() => setCommunityTab('conti')}
+                  className={`px-5 py-4 text-sm font-medium transition ${
+                    communityTab === 'conti'
+                      ? 'border-b-2 border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+                >
+                  콘티 공유
+                </button>
+              </div>
+
+              {/* 탭 콘텐츠 */}
+              {communityTab === 'feed' && (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">커뮤니티 피드 준비 중</p>
+                  <p className="mt-1 text-xs text-gray-400">다른 팀과 소식을 나누는 공간이 곧 열립니다.</p>
+                </div>
+              )}
+
+              {communityTab === 'conti' && (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">콘티 공유 준비 중</p>
+                  <p className="mt-1 text-xs text-gray-400">다른 팀의 콘티를 참고하고 영감을 받아보세요.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </main>
 
       {/* 팀 만들기 모달 */}

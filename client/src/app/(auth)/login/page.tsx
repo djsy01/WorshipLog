@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api';
 
 const inputCls =
@@ -12,12 +12,22 @@ const inputCls =
     'dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500 ' +
     'dark:focus:border-violet-400';
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [form, setForm] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
     const [unverified, setUnverified] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [registered, setRegistered] = useState(false);
+
+    useEffect(() => {
+        if (searchParams.get('registered') === 'true') {
+            setRegistered(true);
+            const email = searchParams.get('email');
+            if (email) setForm((f) => ({ ...f, email }));
+        }
+    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -72,6 +82,12 @@ export default function LoginPage() {
             <div className="rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                 <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-white">로그인</h2>
 
+                {registered && (
+                    <div className="mb-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        가입이 완료되었습니다. 이메일 인증 후 로그인해주세요.
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">이메일</label>
@@ -125,5 +141,13 @@ export default function LoginPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense>
+            <LoginContent />
+        </Suspense>
     );
 }
