@@ -28,6 +28,15 @@ const themeScript = `
       document.documentElement.classList.add('dark');
     }
   } catch(e) {}
+  // Fast Refresh 콘솔 로그 억제 (개발 환경)
+  if (typeof console !== 'undefined') {
+    var _origLog = console.log;
+    console.log = function() {
+      var msg = arguments[0];
+      if (typeof msg === 'string' && msg.indexOf('[Fast Refresh]') === 0) return;
+      _origLog.apply(console, arguments);
+    };
+  }
 })();
 `;
 

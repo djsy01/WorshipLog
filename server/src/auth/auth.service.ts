@@ -39,7 +39,8 @@ export class AuthService {
       data: { email: dto.email, passwordHash, name: dto.name },
     });
 
-    await this.sendVerificationToken(user.id, user.email, user.name);
+    // 이메일 전송은 백그라운드로 — 전송 실패해도 가입 응답은 즉시 반환
+    this.sendVerificationToken(user.id, user.email, user.name).catch(() => null);
     return { message: '가입이 완료되었습니다. 이메일을 확인해주세요.' };
   }
 

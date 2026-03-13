@@ -7,6 +7,32 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateSongDto } from './dto/create-song.dto';
 import { UpdateSongDto } from './dto/update-song.dto';
 
+// 성경 구절 범위 검색: "시 22-23" 저장 시 "시 23" 검색에도 매칭
+function matchesScriptureSearch(ref: string, search: string): boolean {
+  if (!ref) return false;
+  if (ref.toLowerCase().includes(search.toLowerCase())) return true;
+
+  const searchMatch = search.trim().match(/^(.+?)\s+(\d+)(?::(\d+))?$/);
+  if (!searchMatch) return false;
+
+  const searchBook = searchMatch[1].trim().toLowerCase();
+  const searchChapter = parseInt(searchMatch[2]);
+
+  for (const part of ref.split(',').map((p) => p.trim())) {
+    // "Book Ch1-Ch2" 형태 (장 범위)
+    const chRange = part.match(/^(.+?)\s+(\d+)-(\d+)$/);
+    if (chRange) {
+      const refBook = chRange[1].trim().toLowerCase();
+      const start = parseInt(chRange[2]);
+      const end = parseInt(chRange[3]);
+      if (refBook === searchBook && searchChapter >= start && searchChapter <= end) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 @Injectable()
 export class SongsService {
   constructor(private prisma: PrismaService) {}
@@ -20,30 +46,34 @@ export class SongsService {
         tempo: dto.tempo,
         lyrics: dto.lyrics,
         scriptureRef: dto.scriptureRef,
-        isPublic: dto.isPublic ?? false,
+        isPublic: dto.isPublic ?? true,
         createdBy: userId,
       },
     });
   }
 
   async findAll(userId: string, search?: string) {
-    return this.prisma.song.findMany({
-      where: {
-        OR: [{ createdBy: userId }, { isPublic: true }],
-        ...(search
-          ? {
-              AND: {
-                OR: [
-                  { title: { contains: search, mode: 'insensitive' } },
-                  { artist: { contains: search, mode: 'insensitive' } },
-                  { scriptureRef: { contains: search, mode: 'insensitive' } },
-                ],
-              },
-            }
-          : {}),
-      },
+    if (!search) {
+      return this.prisma.song.findMany({
+        where: { OR: [{ createdBy: userId }, { isPublic: true }] },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    const songs = await this.prisma.song.findMany({
+      where: { OR: [{ createdBy: userId }, { isPublic: true }] },
       orderBy: { createdAt: 'desc' },
     });
+
+    const q = search.toLowerCase();
+    return songs.filter(
+      (song) =>
+        song.title.toLowerCase().includes(q) ||
+        (song.artist?.toLowerCase().includes(q) ?? false) ||
+        (song.scriptureRef
+          ? matchesScriptureSearch(song.scriptureRef, search)
+          : false),
+    );
   }
 
   async findOne(userId: string, id: string) {
