@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { BibleService } from './bible.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
@@ -15,5 +15,11 @@ export class BibleController {
   @Get('today')
   getToday() {
     return this.bibleService.getVerseOfDay();
+  }
+
+  @Get('search')
+  searchByRef(@Query('ref') ref: string) {
+    if (!ref) return [];
+    return this.bibleService.searchByRef(ref);
   }
 }

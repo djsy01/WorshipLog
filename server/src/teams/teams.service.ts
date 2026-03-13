@@ -114,6 +114,22 @@ export class TeamsService {
     return { message: '팀에서 나갔습니다.' };
   }
 
+  async getTeamContis(userId: string, teamId: string) {
+    const member = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+    });
+    if (!member) throw new ForbiddenException('팀 멤버가 아닙니다.');
+
+    return this.prisma.conti.findMany({
+      where: { teamId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        songs: { include: { song: true }, orderBy: { orderIndex: 'asc' } },
+        creator: { select: { id: true, name: true } },
+      },
+    });
+  }
+
   private teamInclude() {
     return {
       members: {

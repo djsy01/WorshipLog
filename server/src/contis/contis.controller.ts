@@ -89,4 +89,18 @@ export class ContisController {
   ) {
     return this.contisService.reorderSongs(userId, contiId, dto.ids);
   }
+
+  @Post(':id/share')
+  shareWithTeam(
+    @CurrentUser('sub') userId: string,
+    @Param('id') contiId: string,
+    @Body() dto: ShareContiDto,
+  ) {
+    return this.contisService.shareWithTeam(userId, contiId, dto.teamId);
+  }
+
+  @Delete(':id/share')
+  unshare(@CurrentUser('sub') userId: string, @Param('id') contiId: string) {
+    return this.contisService.unshare(userId, contiId);
+  }
 }

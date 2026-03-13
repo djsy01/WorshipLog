@@ -1,19 +1,37 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client: Redis;
+  private readonly logger = new Logger(RedisService.name);
 
   constructor(private config: ConfigService) {}
 
   onModuleInit() {
-    this.client = new Redis({
-      host: this.config.get('REDIS_HOST', 'localhost'),
-      port: this.config.get<number>('REDIS_PORT', 6379),
-      password: this.config.get('REDIS_PASSWORD'),
-      tls: this.config.get('REDIS_TLS') === 'true' ? {} : undefined,
+    const redisUrl = this.config.get<string>('REDIS_URL');
+
+    if (redisUrl) {
+      // Render 등 URL 형태로 제공되는 경우 (redis:// or rediss://)
+      this.client = new Redis(redisUrl, {
+        tls: redisUrl.startsWith('rediss://') ? {} : undefined,
+        maxRetriesPerRequest: 3,
+        connectTimeout: 10000,
+      });
+    } else {
+      this.client = new Redis({
+        host: this.config.get('REDIS_HOST', 'localhost'),
+        port: this.config.get<number>('REDIS_PORT', 6379),
+        password: this.config.get('REDIS_PASSWORD'),
+        tls: this.config.get('REDIS_TLS') === 'true' ? {} : undefined,
+        maxRetriesPerRequest: 3,
+        connectTimeout: 10000,
+      });
+    }
+
+    this.client.on('error', (err) => {
+      this.logger.error(`Redis error: ${err.message}`);
     });
   }
 

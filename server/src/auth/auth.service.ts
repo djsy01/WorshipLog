@@ -84,7 +84,12 @@ export class AuthService {
     if (!user) throw new NotFoundException('존재하지 않는 이메일입니다.');
     if (user.emailVerified) throw new BadRequestException('이미 인증된 이메일입니다.');
 
-    await this.sendVerificationToken(user.id, user.email, user.name);
+    try {
+      await this.sendVerificationToken(user.id, user.email, user.name);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new BadRequestException(`이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요. (${msg})`);
+    }
     return { message: '인증 이메일을 재발송했습니다.' };
   }
 

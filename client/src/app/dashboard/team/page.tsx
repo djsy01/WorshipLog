@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { teamsApi, Team } from '@/lib/api';
+import Link from 'next/link';
+import { teamsApi, Team, Conti } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 
 type CommunityTab = 'feed' | 'conti';
@@ -14,6 +15,10 @@ export default function TeamPage() {
   const [error, setError] = useState('');
   const [myUserId, setMyUserId] = useState('');
   const [communityTab, setCommunityTab] = useState<CommunityTab>('feed');
+
+  // 콘티 공유 탭
+  const [teamContis, setTeamContis] = useState<{ team: Team; contis: Conti[] }[]>([]);
+  const [loadingContis, setLoadingContis] = useState(false);
 
   // 팀 생성 모달
   const [showCreate, setShowCreate] = useState(false);
@@ -276,7 +281,24 @@ export default function TeamPage() {
                   커뮤니티
                 </button>
                 <button
-                  onClick={() => setCommunityTab('conti')}
+                  onClick={async () => {
+                    setCommunityTab('conti');
+                    if (teamContis.length === 0 && teams.length > 0) {
+                      const token = getToken();
+                      if (!token) return;
+                      setLoadingContis(true);
+                      try {
+                        const results = await Promise.all(
+                          teams.map((t) =>
+                            teamsApi.getContis(token, t.id).then((contis) => ({ team: t, contis }))
+                          )
+                        );
+                        setTeamContis(results.filter((r) => r.contis.length > 0));
+                      } finally {
+                        setLoadingContis(false);
+                      }
+                    }
+                  }}
                   className={`px-5 py-4 text-sm font-medium transition ${
                     communityTab === 'conti'
                       ? 'border-b-2 border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
@@ -301,15 +323,53 @@ export default function TeamPage() {
               )}
 
               {communityTab === 'conti' && (
-                <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
-                    </svg>
+                loadingContis ? (
+                  <div className="flex justify-center py-20 text-sm text-gray-400">불러오는 중...</div>
+                ) : teamContis.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">공유된 콘티가 없습니다</p>
+                    <p className="mt-1 text-xs text-gray-400">콘티 편집 페이지에서 팀에 공유할 수 있습니다.</p>
                   </div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">콘티 공유 준비 중</p>
-                  <p className="mt-1 text-xs text-gray-400">다른 팀의 콘티를 참고하고 영감을 받아보세요.</p>
-                </div>
+                ) : (
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {teamContis.map(({ team, contis }) => (
+                      <div key={team.id} className="px-5 py-4">
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">
+                          {team.name}
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {contis.map((conti) => (
+                            <Link
+                              key={conti.id}
+                              href={`/dashboard/contis/${conti.id}`}
+                              className="group rounded-xl bg-gray-50 p-4 ring-1 ring-gray-200 transition hover:ring-violet-400 dark:bg-gray-800 dark:ring-gray-700 dark:hover:ring-violet-500"
+                            >
+                              <h3 className="font-medium text-gray-900 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400">
+                                {conti.title}
+                              </h3>
+                              {conti.worshipDate && (
+                                <p className="mt-0.5 text-xs text-violet-500 dark:text-violet-400">
+                                  {new Date(conti.worshipDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+                                </p>
+                              )}
+                              <div className="mt-2 flex items-center justify-between">
+                                <p className="text-xs text-gray-400">찬양 {conti.songs.length}곡</p>
+                                {conti.creator && (
+                                  <p className="text-xs text-gray-400">{conti.creator.name}</p>
+                                )}
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
             </div>
           </section>

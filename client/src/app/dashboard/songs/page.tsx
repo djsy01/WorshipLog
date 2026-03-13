@@ -41,9 +41,12 @@ function SongsContent() {
   const [spotifyResults, setSpotifyResults] = useState<SpotifyTrack[]>([]);
   const [spotifyLoading, setSpotifyLoading] = useState(false);
 
+  // 카드 expand
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   // 말씀 구절 피커 (모달 내)
   const [showVersePicker, setShowVersePicker] = useState(false);
-  const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerVerses, setPickerVerses] = useState<BibleVerse[]>([]);
 
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
@@ -193,11 +196,18 @@ function SongsContent() {
     }
   };
 
-  // 구절 피커: 현재 오늘의 말씀 구절만 제공 (나중에 확장 가능)
-  const verseOptions = verse ? [formatRef(verse)] : [];
-  const filteredVerseOptions = pickerSearch
-    ? verseOptions.filter(v => v.includes(pickerSearch))
-    : verseOptions;
+  // 구절 피커: 오늘의 말씀 + 입력한 ref로 bible 검색
+  const handlePickerInput = useCallback(async (val: string) => {
+    setForm((f) => ({ ...f, scriptureRef: val }));
+    setShowVersePicker(true);
+    if (!val.trim()) { setPickerVerses([]); return; }
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    try {
+      const results = await bibleApi.searchByRef(token, val);
+      setPickerVerses(results);
+    } catch { setPickerVerses([]); }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -289,67 +299,90 @@ function SongsContent() {
           </div>
         )}
         <div className="grid gap-3 sm:grid-cols-2">
-          {songs.map((song) => (
-            <div
-              key={song.id}
-              className="group relative rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="truncate font-semibold text-gray-900 dark:text-white">{song.title}</h3>
-                  {song.artist && (
-                    <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">{song.artist}</p>
-                  )}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {song.defaultKey && (
-                      <span className="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                        {song.defaultKey}
-                      </span>
-                    )}
-                    {song.tempo && (
-                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                        ♩ {song.tempo} BPM
-                      </span>
+          {songs.map((song) => {
+            const isExpanded = expandedId === song.id;
+            return (
+              <div
+                key={song.id}
+                className="group relative rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition dark:bg-gray-900 dark:ring-gray-700"
+              >
+                {/* 클릭 영역 - 헤더 */}
+                <button
+                  onClick={() => setExpandedId(isExpanded ? null : song.id)}
+                  className="w-full p-5 text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-semibold text-gray-900 dark:text-white">{song.title}</h3>
+                      {song.artist && (
+                        <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">{song.artist}</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {song.defaultKey && (
+                          <span className="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                            {song.defaultKey}
+                          </span>
+                        )}
+                        {song.tempo && (
+                          <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                            ♩ {song.tempo} BPM
+                          </span>
+                        )}
+                        {song.scriptureRef && (
+                          <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                            📖 {song.scriptureRef}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-4 w-4 shrink-0 text-gray-300 transition-transform dark:text-gray-600 ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* 펼쳐지는 상세 영역 */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100 px-5 pb-4 dark:border-gray-800">
+                    {song.lyrics && (
+                      <div className="mt-3">
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">가사</p>
+                        <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+                          {song.lyrics}
+                        </p>
+                      </div>
                     )}
                     {song.scriptureRef && (
                       <button
                         onClick={() => setSearch(song.scriptureRef!)}
-                        className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40"
+                        className="mt-3 text-xs text-amber-600 hover:underline dark:text-amber-400"
                       >
-                        📖 {song.scriptureRef}
+                        📖 {song.scriptureRef} 로 찬양 찾기
                       </button>
                     )}
-                    {song.isPublic && (
-                      <span className="rounded-md bg-green-50 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/20 dark:text-green-400">
-                        공개
-                      </span>
-                    )}
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        onClick={() => openEditModal(song)}
+                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:border-violet-400 hover:text-violet-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-violet-500 dark:hover:text-violet-400"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => handleDelete(song.id, song.title)}
+                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400 hover:border-red-300 hover:text-red-500 dark:border-gray-700 dark:hover:border-red-700 dark:hover:text-red-400"
+                      >
+                        삭제
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                  <button
-                    onClick={() => openEditModal(song)}
-                    className="rounded-lg p-1.5 text-gray-300 transition hover:bg-violet-50 hover:text-violet-500 dark:text-gray-600 dark:hover:bg-violet-900/20 dark:hover:text-violet-400"
-                    aria-label="수정"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                      <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(song.id, song.title)}
-                    className="rounded-lg p-1.5 text-gray-300 transition hover:bg-red-50 hover:text-red-500 dark:text-gray-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                    aria-label="삭제"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                      <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-                      <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
-                    </svg>
-                  </button>
-                </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
 
@@ -442,37 +475,47 @@ function SongsContent() {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="말씀 구절 (예: 시 23:1, 빌 4:13)"
+                  placeholder="말씀 구절 (예: 시 23:1, 엡 2:21-22)"
                   value={form.scriptureRef}
-                  onChange={(e) => {
-                    setForm((f) => ({ ...f, scriptureRef: e.target.value }));
-                    setPickerSearch(e.target.value);
-                    setShowVersePicker(true);
-                  }}
+                  onChange={(e) => handlePickerInput(e.target.value)}
                   onFocus={() => setShowVersePicker(true)}
-                  onBlur={() => setTimeout(() => setShowVersePicker(false), 150)}
+                  onBlur={() => setTimeout(() => setShowVersePicker(false), 200)}
                   className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-amber-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-amber-500"
                 />
-                {/* 오늘의 말씀 빠른 선택 */}
-                {showVersePicker && filteredVerseOptions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                    {filteredVerseOptions.map((opt) => (
-                      <button
-                        key={opt}
-                        onMouseDown={() => {
-                          setForm((f) => ({ ...f, scriptureRef: opt }));
-                          setShowVersePicker(false);
-                        }}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-violet-50 dark:text-gray-300 dark:hover:bg-violet-900/20"
-                      >
-                        <span className="text-amber-500">📖</span>
-                        <span className="font-medium">{opt}</span>
-                        {verse && opt === formatRef(verse) && (
-                          <span className="ml-auto text-xs text-gray-400">오늘의 말씀</span>
+                {/* 오늘의 말씀 빠른 선택 + 범위 구절 결과 */}
+                {showVersePicker && (
+                  (() => {
+                    const todayRef = verse ? formatRef(verse) : null;
+                    const showToday = todayRef && !form.scriptureRef;
+                    const hasResults = pickerVerses.length > 0;
+                    if (!showToday && !hasResults) return null;
+                    return (
+                      <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                        {showToday && (
+                          <button
+                            onMouseDown={() => { setForm((f) => ({ ...f, scriptureRef: todayRef! })); setShowVersePicker(false); }}
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-violet-50 dark:text-gray-300 dark:hover:bg-violet-900/20"
+                          >
+                            <span className="text-amber-500">📖</span>
+                            <span className="font-medium">{todayRef}</span>
+                            <span className="ml-auto text-xs text-gray-400">오늘의 말씀</span>
+                          </button>
                         )}
-                      </button>
-                    ))}
-                  </div>
+                        {hasResults && pickerVerses.map((v) => (
+                          <button
+                            key={`${v.book}${v.chapter}:${v.verse}`}
+                            onMouseDown={() => { setForm((f) => ({ ...f, scriptureRef: `${v.book} ${v.chapter}:${v.verse}` })); setShowVersePicker(false); }}
+                            className="flex w-full flex-col gap-0.5 px-4 py-2.5 text-left hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{v.book} {v.chapter}:{v.verse}</span>
+                            </div>
+                            <p className="line-clamp-1 text-xs text-gray-500 dark:text-gray-400">{v.content}</p>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()
                 )}
               </div>
 

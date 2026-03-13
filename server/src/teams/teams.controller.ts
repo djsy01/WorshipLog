@@ -51,4 +51,9 @@ export class TeamsController {
   leave(@CurrentUser('sub') userId: string, @Param('id') teamId: string) {
     return this.teamsService.leave(userId, teamId);
   }
+
+  @Get(':id/contis')
+  getTeamContis(@CurrentUser('sub') userId: string, @Param('id') teamId: string) {
+    return this.teamsService.getTeamContis(userId, teamId);
+  }
 }
