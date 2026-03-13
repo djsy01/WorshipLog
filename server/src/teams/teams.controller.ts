@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -50,6 +51,24 @@ export class TeamsController {
   @Delete(':id/leave')
   leave(@CurrentUser('sub') userId: string, @Param('id') teamId: string) {
     return this.teamsService.leave(userId, teamId);
+  }
+
+  @Delete(':id/members/:memberId')
+  kickMember(
+    @CurrentUser('sub') userId: string,
+    @Param('id') teamId: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.teamsService.kickMember(userId, teamId, memberId);
+  }
+
+  @Patch(':id/members/:memberId/transfer')
+  transferLeader(
+    @CurrentUser('sub') userId: string,
+    @Param('id') teamId: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.teamsService.transferLeader(userId, teamId, memberId);
   }
 
   @Get(':id/contis')

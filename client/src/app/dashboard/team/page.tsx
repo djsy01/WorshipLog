@@ -25,6 +25,11 @@ export default function TeamPage() {
   const [createForm, setCreateForm] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
 
+  // 멤버 토글
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+  const toggleMembers = (teamId: string) =>
+    setExpandedTeams((prev) => { const s = new Set(prev); s.has(teamId) ? s.delete(teamId) : s.add(teamId); return s; });
+
   // 초대 링크
   const [inviteInfo, setInviteInfo] = useState<{ teamId: string; token: string; expiresAt: string } | null>(null);
 
@@ -118,6 +123,30 @@ export default function TeamPage() {
     }
   };
 
+  const handleKick = async (teamId: string, memberId: string, memberName: string) => {
+    if (!confirm(`"${memberName}"님을 추방하시겠습니까?`)) return;
+    const token = getToken();
+    if (!token) return;
+    try {
+      await teamsApi.kickMember(token, teamId, memberId);
+      setTeams((prev) => prev.map((t) => t.id !== teamId ? t : { ...t, members: t.members.filter((m) => m.user.id !== memberId) }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '추방 실패');
+    }
+  };
+
+  const handleTransfer = async (teamId: string, memberId: string, memberName: string) => {
+    if (!confirm(`"${memberName}"님에게 방장을 이전하시겠습니까?`)) return;
+    const token = getToken();
+    if (!token) return;
+    try {
+      const updated = await teamsApi.transferLeader(token, teamId, memberId);
+      if (updated) setTeams((prev) => prev.map((t) => t.id !== teamId ? t : updated));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '방장 이전 실패');
+    }
+  };
+
   const handleDelete = async (teamId: string, teamName: string) => {
     if (!confirm(`"${teamName}" 팀을 삭제하시겠습니까?`)) return;
     const token = getToken();
@@ -134,7 +163,7 @@ export default function TeamPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <AppHeader page="팀스페이스" />
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <main className="mx-auto max-w-5xl px-6 py-10">
         {/* 상단 헤더 */}
         <div className="mb-6 flex items-center justify-between">
           <button
@@ -149,13 +178,13 @@ export default function TeamPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowJoin(true)}
-              className="rounded-lg border border-violet-300 px-3 py-2 text-sm font-medium text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-900/20"
+              className="rounded-xl border border-violet-300 px-3 py-2 text-sm font-medium text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-900/20"
             >
               팀 참여
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
+              className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
             >
               + 팀 만들기
             </button>
@@ -175,19 +204,19 @@ export default function TeamPage() {
           <aside className="col-span-10 md:col-span-3">
             <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
               <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">내 스페이스</h2>
+                <h2 className="font-bold text-gray-900 dark:text-white">내 스페이스</h2>
                 <p className="mt-0.5 text-xs text-gray-400">참여 중인 팀 목록</p>
               </div>
 
               {loading ? (
-                <div className="flex justify-center py-12 text-sm text-gray-400">불러오는 중...</div>
+                <div className="flex justify-center py-10 text-sm text-gray-400">불러오는 중...</div>
               ) : teams.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="flex flex-col items-center justify-center py-10 text-center">
                   <div className="mb-2 text-3xl">👥</div>
-                  <p className="text-xs text-gray-400">아직 팀이 없습니다.</p>
+                  <p className="text-sm text-gray-400">아직 팀이 없습니다.</p>
                   <button
                     onClick={() => setShowCreate(true)}
-                    className="mt-3 text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
+                    className="mt-3 text-sm font-medium text-violet-600 hover:underline dark:text-violet-400"
                   >
                     첫 번째 팀 만들기
                   </button>
@@ -198,65 +227,90 @@ export default function TeamPage() {
                     const isLeader = team.createdBy === myUserId;
                     return (
                       <li key={team.id} className="px-5 py-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="truncate text-sm font-medium text-gray-900 dark:text-white">{team.name}</span>
-                              {isLeader && (
-                                <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                                  팀장
-                                </span>
-                              )}
-                            </div>
-                            {team.description && (
-                              <p className="mt-0.5 truncate text-xs text-gray-400">{team.description}</p>
-                            )}
-                            {/* 멤버 아바타 */}
-                            <div className="mt-2 flex -space-x-1">
-                              {team.members.slice(0, 5).map((m) => (
-                                <div
-                                  key={m.id}
-                                  title={m.user.name}
-                                  className="h-5 w-5 rounded-full bg-violet-200 text-center text-[10px] font-bold leading-5 text-violet-700 ring-2 ring-white dark:bg-violet-800 dark:text-violet-300 dark:ring-gray-900"
-                                >
-                                  {m.user.name[0]}
-                                </div>
-                              ))}
-                              {team.members.length > 5 && (
-                                <div className="h-5 w-5 rounded-full bg-gray-200 text-center text-[10px] leading-5 text-gray-500 ring-2 ring-white dark:bg-gray-700 dark:text-gray-400 dark:ring-gray-900">
-                                  +{team.members.length - 5}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {/* 액션 버튼 */}
-                          <div className="flex shrink-0 flex-col gap-1">
+                        {/* 팀 헤더: 이름 + 토글 버튼만 */}
+                        <button
+                          onClick={() => toggleMembers(team.id)}
+                          className="flex w-full items-center justify-between gap-2 text-left"
+                        >
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate font-bold text-gray-900 dark:text-white">{team.name}</span>
                             {isLeader && (
-                              <>
-                                <button
-                                  onClick={() => handleCreateInvite(team.id)}
-                                  className="rounded px-2 py-1 text-[10px] text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/20"
-                                >
-                                  초대
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(team.id, team.name)}
-                                  className="rounded px-2 py-1 text-[10px] text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                >
-                                  삭제
-                                </button>
-                              </>
-                            )}
-                            {!isLeader && (
-                              <button
-                                onClick={() => handleLeave(team.id, team.name)}
-                                className="rounded px-2 py-1 text-[10px] text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                              >
-                                나가기
-                              </button>
+                              <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                                팀장
+                              </span>
                             )}
                           </div>
-                        </div>
+                          <span className="shrink-0 text-xs text-gray-400">
+                            {expandedTeams.has(team.id) ? '▲' : '▼'}
+                          </span>
+                        </button>
+                        {team.description && (
+                          <p className="mt-0.5 truncate text-sm text-gray-400">{team.description}</p>
+                        )}
+                        {/* 펼쳤을 때: 멤버 리스트 + 액션 버튼 */}
+                        {expandedTeams.has(team.id) && (
+                          <div className="mt-3 space-y-2 rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
+                            {team.members.map((m) => {
+                              const isMemberLeader = team.createdBy === m.user.id;
+                              return (
+                                <div key={m.id} className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-7 w-7 shrink-0 rounded-full bg-violet-200 text-center text-sm font-bold leading-7 text-violet-700 dark:bg-violet-800 dark:text-violet-300">
+                                      {m.user.name[0]}
+                                    </div>
+                                    <span className="font-medium text-gray-800 dark:text-gray-200">{m.user.name}</span>
+                                    {isMemberLeader && (
+                                      <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-xs font-medium text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">방장</span>
+                                    )}
+                                  </div>
+                                  {isLeader && !isMemberLeader && (
+                                    <div className="flex gap-1">
+                                      <button
+                                        onClick={() => handleTransfer(team.id, m.user.id, m.user.name)}
+                                        className="rounded px-2 py-0.5 text-xs text-violet-500 hover:bg-violet-100 dark:hover:bg-violet-900/30"
+                                      >
+                                        방장이전
+                                      </button>
+                                      <button
+                                        onClick={() => handleKick(team.id, m.user.id, m.user.name)}
+                                        className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                      >
+                                        추방
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {/* 팀 액션 버튼 */}
+                            <div className="flex gap-2 border-t border-gray-200 pt-3 dark:border-gray-700">
+                              {isLeader && (
+                                <>
+                                  <button
+                                    onClick={() => handleCreateInvite(team.id)}
+                                    className="rounded-lg px-3 py-1.5 text-sm text-violet-500 hover:bg-violet-100 dark:hover:bg-violet-900/30"
+                                  >
+                                    초대 링크
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(team.id, team.name)}
+                                    className="rounded-lg px-3 py-1.5 text-sm text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  >
+                                    팀 삭제
+                                  </button>
+                                </>
+                              )}
+                              {!isLeader && (
+                                <button
+                                  onClick={() => handleLeave(team.id, team.name)}
+                                  className="rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  팀 나가기
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </li>
                     );
                   })}
@@ -311,7 +365,7 @@ export default function TeamPage() {
 
               {/* 탭 콘텐츠 */}
               {communityTab === 'feed' && (
-                <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="flex flex-col items-center justify-center py-20 text-center">
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
