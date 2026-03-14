@@ -35,6 +35,10 @@ server/src/
 ├── redis/                  # RedisService
 ├── songs/                  # 찬양 CRUD
 │   └── dto/                # CreateSongDto, UpdateSongDto
+├── contis/                 # 콘티 CRUD + 팀 공유
+│   └── dto/
+├── teams/                  # 팀 관리 + 채팅(CommunityPost) + 콘티 공유
+│   └── dto/                # CreateTeamDto
 ├── bible/                  # 오늘의 말씀 API
 ├── spotify/                # Spotify 검색 연동
 ├── app.module.ts
@@ -122,7 +126,35 @@ npm run start:prod
 | ------ | ---------------------- | ----------- | ---------------------------------- |
 | GET    | /api/spotify/search?q= | AccessToken | Spotify 곡 검색 (제목·아티스트 반환) |
 
-> Contis, Teams, History, Community 엔드포인트 — Phase 2/3 예정
+### Contis — `/api/contis`
+
+| Method | Path                        | 인증        | 설명                              |
+| ------ | --------------------------- | ----------- | --------------------------------- |
+| GET    | /api/contis                 | AccessToken | 내 콘티 목록 조회                 |
+| POST   | /api/contis                 | AccessToken | 콘티 생성                         |
+| GET    | /api/contis/:id             | AccessToken | 콘티 단건 조회                    |
+| PATCH  | /api/contis/:id             | AccessToken | 콘티 수정                         |
+| DELETE | /api/contis/:id             | AccessToken | 콘티 삭제                         |
+| POST   | /api/contis/:id/share       | AccessToken | 콘티를 팀에 공유                  |
+| DELETE | /api/contis/:id/share       | AccessToken | 팀 공유 해제                      |
+
+### Teams — `/api/teams`
+
+| Method | Path                                  | 인증        | 설명                              |
+| ------ | ------------------------------------- | ----------- | --------------------------------- |
+| GET    | /api/teams                            | AccessToken | 내 팀 목록                        |
+| POST   | /api/teams                            | AccessToken | 팀 생성                           |
+| GET    | /api/teams/:id                        | AccessToken | 팀 단건 조회                      |
+| DELETE | /api/teams/:id                        | AccessToken | 팀 삭제 (팀장만)                  |
+| POST   | /api/teams/:id/invite                 | AccessToken | 초대 링크 생성 (24시간, 팀장만)   |
+| POST   | /api/teams/join/:token                | AccessToken | 초대 토큰으로 팀 가입             |
+| DELETE | /api/teams/:id/leave                  | AccessToken | 팀 나가기                         |
+| DELETE | /api/teams/:id/members/:memberId      | AccessToken | 멤버 추방 (팀장만)                |
+| PATCH  | /api/teams/:id/members/:memberId/transfer | AccessToken | 방장 이전 (팀장만)            |
+| GET    | /api/teams/:id/contis                 | AccessToken | 팀에 공유된 콘티 목록             |
+| GET    | /api/teams/:id/posts                  | AccessToken | 팀 채팅 메시지 목록               |
+| POST   | /api/teams/:id/posts                  | AccessToken | 채팅 메시지 전송 (`{ content }`)  |
+| DELETE | /api/teams/:id/posts/:postId          | AccessToken | 내 메시지 삭제                    |
 
 ### Health
 
@@ -150,3 +182,10 @@ npm run start:prod
   ```
 
 - Spotify `audio-features` API는 2024년 이후 신규 앱에서 차단됨 → BPM은 수동 입력
+- `community_posts` 테이블의 `team_id` 컬럼은 Supabase pooler FK 제약 불가로 수동 DDL 추가:
+
+  ```sql
+  ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS team_id TEXT;
+  ```
+
+- `prisma db push`는 Supabase pooler(6543)에서 P1017 오류 발생 → Node `pg`로 직접 DDL 후 `npx prisma generate`

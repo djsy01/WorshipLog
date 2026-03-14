@@ -45,11 +45,12 @@ model Team {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  creator User         @relation(fields: [createdBy], references: [id])
+  creator User            @relation(fields: [createdBy], references: [id])
   members TeamMember[]
   invites TeamInvite[]
   contis  Conti[]
   history History[]
+  posts   CommunityPost[]
 
   @@map("teams")
 }
@@ -153,12 +154,14 @@ model History {
 
 model CommunityPost {
   id        String   @id @default(uuid())
+  teamId    String   @map("team_id")
   userId    String   @map("user_id")
-  title     String
+  title     String?
   content   String
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  team     Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   comments CommunityComment[]
 

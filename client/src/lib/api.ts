@@ -312,6 +312,17 @@ export const spotifyApi = {
     }),
 };
 
+export interface CommunityPost {
+  id: string;
+  teamId: string;
+  userId: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; name: string };
+}
+
 export interface TeamMember {
   id: string;
   userId: string;
@@ -379,6 +390,22 @@ export const teamsApi = {
   transferLeader: (token: string, teamId: string, memberId: string) =>
     request<Team>(`/teams/${teamId}/members/${memberId}/transfer`, {
       method: 'PATCH',
+      headers: authHeaders(token),
+    }),
+
+  getPosts: (token: string, teamId: string) =>
+    request<CommunityPost[]>(`/teams/${teamId}/posts`, { headers: authHeaders(token) }),
+
+  createPost: (token: string, teamId: string, body: { content: string }) =>
+    request<CommunityPost>(`/teams/${teamId}/posts`, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  deletePost: (token: string, teamId: string, postId: string) =>
+    request<{ message: string }>(`/teams/${teamId}/posts/${postId}`, {
+      method: 'DELETE',
       headers: authHeaders(token),
     }),
 };
