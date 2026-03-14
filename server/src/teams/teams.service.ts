@@ -148,6 +148,40 @@ export class TeamsService {
     return this.prisma.team.findUnique({ where: { id: teamId }, include: this.teamInclude() });
   }
 
+  async getTeamPosts(userId: string, teamId: string) {
+    const member = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+    });
+    if (!member) throw new ForbiddenException('팀 멤버가 아닙니다.');
+
+    return this.prisma.communityPost.findMany({
+      where: { teamId },
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { id: true, name: true } } },
+    });
+  }
+
+  async createPost(userId: string, teamId: string, dto: { content: string }) {
+    const member = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+    });
+    if (!member) throw new ForbiddenException('팀 멤버가 아닙니다.');
+
+    return this.prisma.communityPost.create({
+      data: { teamId, userId, content: dto.content },
+      include: { user: { select: { id: true, name: true } } },
+    });
+  }
+
+  async deletePost(userId: string, teamId: string, postId: string) {
+    const post = await this.prisma.communityPost.findUnique({ where: { id: postId } });
+    if (!post) throw new NotFoundException('포스트를 찾을 수 없습니다.');
+    if (post.userId !== userId) throw new ForbiddenException('작성자만 삭제할 수 있습니다.');
+
+    await this.prisma.communityPost.delete({ where: { id: postId } });
+    return { message: '삭제되었습니다.' };
+  }
+
   async getTeamContis(userId: string, teamId: string) {
     const member = await this.prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },

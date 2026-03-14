@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { teamsApi, Team, Conti } from '@/lib/api';
+import { teamsApi, Team, Conti, CommunityPost } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 
-type CommunityTab = 'feed' | 'conti';
+type CommunityTab = 'chat' | 'conti';
 
 export default function TeamPage() {
   const router = useRouter();
@@ -14,26 +14,39 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [myUserId, setMyUserId] = useState('');
-  const [communityTab, setCommunityTab] = useState<CommunityTab>('feed');
 
-  // 콘티 공유 탭
-  const [teamContis, setTeamContis] = useState<{ team: Team; contis: Conti[] }[]>([]);
+  // 선택된 팀
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId) ?? null;
+
+  // 탭
+  const [communityTab, setCommunityTab] = useState<CommunityTab>('chat');
+
+  // 콘티 공유
+  const [teamContis, setTeamContis] = useState<Conti[]>([]);
   const [loadingContis, setLoadingContis] = useState(false);
 
-  // 팀 생성 모달
-  const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', description: '' });
-  const [creating, setCreating] = useState(false);
+  // 채팅 메시지
+  const [messages, setMessages] = useState<CommunityPost[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [sendingMsg, setSendingMsg] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // 멤버 토글
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const toggleMembers = (teamId: string) =>
     setExpandedTeams((prev) => { const s = new Set(prev); s.has(teamId) ? s.delete(teamId) : s.add(teamId); return s; });
 
+  // 팀 생성 모달
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', description: '' });
+  const [creating, setCreating] = useState(false);
+
   // 초대 링크
   const [inviteInfo, setInviteInfo] = useState<{ teamId: string; token: string; expiresAt: string } | null>(null);
 
-  // 초대 토큰으로 가입
+  // 팀 참여 모달
   const [joinToken, setJoinToken] = useState('');
   const [joining, setJoining] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
@@ -62,6 +75,84 @@ export default function TeamPage() {
     if (stored) setMyUserId((JSON.parse(stored) as { id: string }).id);
     loadTeams();
   }, [loadTeams]);
+
+  // 채팅 메시지 스크롤 하단 유지
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const loadMessages = useCallback(async (teamId: string) => {
+    const token = getToken();
+    if (!token) return;
+    setLoadingMessages(true);
+    try {
+      const data = await teamsApi.getPosts(token, teamId);
+      setMessages([...data].reverse()); // 오래된 것부터 표시
+    } catch {
+      // ignore
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [getToken]);
+
+  const selectTeam = useCallback(async (teamId: string) => {
+    setSelectedTeamId(teamId);
+    setCommunityTab('chat');
+    setMessages([]);
+    setTeamContis([]);
+    await loadMessages(teamId);
+  }, [loadMessages]);
+
+  const loadContis = useCallback(async (teamId: string) => {
+    const token = getToken();
+    if (!token) return;
+    setLoadingContis(true);
+    try {
+      const data = await teamsApi.getContis(token, teamId);
+      setTeamContis(data);
+    } finally {
+      setLoadingContis(false);
+    }
+  }, [getToken]);
+
+  const handleTabChange = async (tab: CommunityTab) => {
+    setCommunityTab(tab);
+    if (tab === 'conti' && selectedTeamId && teamContis.length === 0) {
+      await loadContis(selectedTeamId);
+    }
+    if (tab === 'chat' && selectedTeamId) {
+      await loadMessages(selectedTeamId);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTeamId || !chatInput.trim()) return;
+    const token = getToken();
+    if (!token) return;
+    setSendingMsg(true);
+    try {
+      const msg = await teamsApi.createPost(token, selectedTeamId, { content: chatInput.trim() });
+      setMessages((prev) => [...prev, msg]);
+      setChatInput('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '전송 실패');
+    } finally {
+      setSendingMsg(false);
+    }
+  };
+
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!selectedTeamId) return;
+    const token = getToken();
+    if (!token) return;
+    try {
+      await teamsApi.deletePost(token, selectedTeamId, msgId);
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '삭제 실패');
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,6 +209,7 @@ export default function TeamPage() {
     try {
       await teamsApi.leave(token, teamId);
       setTeams((prev) => prev.filter((t) => t.id !== teamId));
+      if (selectedTeamId === teamId) setSelectedTeamId(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : '나가기 실패');
     }
@@ -154,9 +246,26 @@ export default function TeamPage() {
     try {
       await teamsApi.remove(token, teamId);
       setTeams((prev) => prev.filter((t) => t.id !== teamId));
+      if (selectedTeamId === teamId) setSelectedTeamId(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : '삭제 실패');
     }
+  };
+
+  // 날짜 포맷
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  };
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  // 날짜 구분선 여부
+  const needsDateSeparator = (messages: CommunityPost[], idx: number) => {
+    if (idx === 0) return true;
+    return formatDate(messages[idx].createdAt) !== formatDate(messages[idx - 1].createdAt);
   };
 
   return (
@@ -205,7 +314,7 @@ export default function TeamPage() {
             <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
               <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                 <h2 className="font-bold text-gray-900 dark:text-white">내 스페이스</h2>
-                <p className="mt-0.5 text-xs text-gray-400">참여 중인 팀 목록</p>
+                <p className="mt-0.5 text-xs text-gray-400">팀을 선택해 톡방에 참여하세요</p>
               </div>
 
               {loading ? (
@@ -225,31 +334,49 @@ export default function TeamPage() {
                 <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                   {teams.map((team) => {
                     const isLeader = team.createdBy === myUserId;
+                    const isSelected = selectedTeamId === team.id;
+                    const isExpanded = expandedTeams.has(team.id);
                     return (
-                      <li key={team.id} className="px-5 py-4">
-                        {/* 팀 헤더: 이름 + 토글 버튼만 */}
-                        <button
-                          onClick={() => toggleMembers(team.id)}
-                          className="flex w-full items-center justify-between gap-2 text-left"
+                      <li key={team.id}>
+                        {/* 팀 선택 행 */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => selectTeam(team.id)}
+                          onKeyDown={(e) => e.key === 'Enter' && selectTeam(team.id)}
+                          className={`flex cursor-pointer items-center justify-between gap-2 px-5 py-4 transition ${
+                            isSelected
+                              ? 'bg-violet-50 dark:bg-violet-900/20'
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                          }`}
                         >
                           <div className="flex min-w-0 items-center gap-1.5">
-                            <span className="truncate font-bold text-gray-900 dark:text-white">{team.name}</span>
+                            {isSelected && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />}
+                            <span className={`truncate font-bold ${isSelected ? 'text-violet-700 dark:text-violet-400' : 'text-gray-900 dark:text-white'}`}>
+                              {team.name}
+                            </span>
                             {isLeader && (
                               <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                                 팀장
                               </span>
                             )}
                           </div>
-                          <span className="shrink-0 text-xs text-gray-400">
-                            {expandedTeams.has(team.id) ? '▲' : '▼'}
-                          </span>
-                        </button>
-                        {team.description && (
-                          <p className="mt-0.5 truncate text-sm text-gray-400">{team.description}</p>
+                          {/* 멤버 토글 */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleMembers(team.id); }}
+                            className="shrink-0 rounded px-1.5 py-0.5 text-xs text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                          >
+                            {isExpanded ? '▲' : '▼'}
+                          </button>
+                        </div>
+                        {team.description && !isExpanded && (
+                          <p className="px-5 pb-3 -mt-2 truncate text-xs text-gray-400">{team.description}</p>
                         )}
-                        {/* 펼쳤을 때: 멤버 리스트 + 액션 버튼 */}
-                        {expandedTeams.has(team.id) && (
-                          <div className="mt-3 space-y-2 rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
+
+                        {/* 멤버 확장 영역 */}
+                        {isExpanded && (
+                          <div className="mx-5 mb-4 space-y-2 rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
                             {team.members.map((m) => {
                               const isMemberLeader = team.createdBy === m.user.id;
                               return (
@@ -282,7 +409,6 @@ export default function TeamPage() {
                                 </div>
                               );
                             })}
-                            {/* 팀 액션 버튼 */}
                             <div className="flex gap-2 border-t border-gray-200 pt-3 dark:border-gray-700">
                               {isLeader && (
                                 <>
@@ -319,85 +445,174 @@ export default function TeamPage() {
             </div>
           </aside>
 
-          {/* ── 우측: 커뮤니티 (7/10) ── */}
+          {/* ── 우측: 선택된 팀 콘텐츠 (7/10) ── */}
           <section className="col-span-10 md:col-span-7">
-            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
-              {/* 탭 */}
-              <div className="flex border-b border-gray-100 dark:border-gray-800">
-                <button
-                  onClick={() => setCommunityTab('feed')}
-                  className={`px-5 py-4 text-sm font-medium transition ${
-                    communityTab === 'feed'
-                      ? 'border-b-2 border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                  }`}
-                >
-                  커뮤니티
-                </button>
-                <button
-                  onClick={async () => {
-                    setCommunityTab('conti');
-                    if (teamContis.length === 0 && teams.length > 0) {
-                      const token = getToken();
-                      if (!token) return;
-                      setLoadingContis(true);
-                      try {
-                        const results = await Promise.all(
-                          teams.map((t) =>
-                            teamsApi.getContis(token, t.id).then((contis) => ({ team: t, contis }))
-                          )
-                        );
-                        setTeamContis(results.filter((r) => r.contis.length > 0));
-                      } finally {
-                        setLoadingContis(false);
-                      }
-                    }
-                  }}
-                  className={`px-5 py-4 text-sm font-medium transition ${
-                    communityTab === 'conti'
-                      ? 'border-b-2 border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                  }`}
-                >
-                  콘티 공유
-                </button>
-              </div>
-
-              {/* 탭 콘텐츠 */}
-              {communityTab === 'feed' && (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">커뮤니티 피드 준비 중</p>
-                  <p className="mt-1 text-xs text-gray-400">다른 팀과 소식을 나누는 공간이 곧 열립니다.</p>
+            {!selectedTeam ? (
+              <div className="flex h-64 flex-col items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+                  </svg>
                 </div>
-              )}
-
-              {communityTab === 'conti' && (
-                loadingContis ? (
-                  <div className="flex justify-center py-20 text-sm text-gray-400">불러오는 중...</div>
-                ) : teamContis.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
-                      </svg>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">왼쪽에서 팀을 선택해주세요</p>
+                <p className="mt-1 text-xs text-gray-400">팀별 채팅과 콘티 공유를 확인할 수 있습니다.</p>
+              </div>
+            ) : (
+              <div className="flex h-150 flex-col rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+                {/* 팀 헤더 */}
+                <div className="border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 shrink-0 rounded-full bg-violet-500 text-center text-sm font-bold leading-8 text-white">
+                      {selectedTeam.name[0]}
                     </div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">공유된 콘티가 없습니다</p>
-                    <p className="mt-1 text-xs text-gray-400">콘티 편집 페이지에서 팀에 공유할 수 있습니다.</p>
+                    <div>
+                      <p className="font-bold text-gray-900 dark:text-white">{selectedTeam.name}</p>
+                      <p className="text-xs text-gray-400">멤버 {selectedTeam.members.length}명</p>
+                    </div>
                   </div>
-                ) : (
-                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {teamContis.map(({ team, contis }) => (
-                      <div key={team.id} className="px-5 py-4">
-                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">
-                          {team.name}
-                        </p>
+                </div>
+
+                {/* 탭 */}
+                <div className="flex border-b border-gray-100 dark:border-gray-800">
+                  <button
+                    onClick={() => handleTabChange('chat')}
+                    className={`px-5 py-3 text-sm font-medium transition ${
+                      communityTab === 'chat'
+                        ? 'border-b-2 border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    커뮤니티
+                  </button>
+                  <button
+                    onClick={() => handleTabChange('conti')}
+                    className={`px-5 py-3 text-sm font-medium transition ${
+                      communityTab === 'conti'
+                        ? 'border-b-2 border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    콘티 공유
+                  </button>
+                </div>
+
+                {/* 채팅 탭 */}
+                {communityTab === 'chat' && (
+                  <>
+                    {/* 메시지 목록 */}
+                    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+                      {loadingMessages ? (
+                        <div className="flex h-full items-center justify-center text-sm text-gray-400">불러오는 중...</div>
+                      ) : messages.length === 0 ? (
+                        <div className="flex h-full flex-col items-center justify-center text-center">
+                          <div className="mb-2 text-3xl">💬</div>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">대화를 시작해보세요</p>
+                          <p className="mt-1 text-xs text-gray-400">팀원들과 소식을 나눠보세요.</p>
+                        </div>
+                      ) : (
+                        messages.map((msg, idx) => {
+                          const isMine = msg.userId === myUserId;
+                          const showDate = needsDateSeparator(messages, idx);
+                          const showAvatar = !isMine && (idx === 0 || messages[idx - 1].userId !== msg.userId || showDate);
+                          return (
+                            <div key={msg.id}>
+                              {/* 날짜 구분선 */}
+                              {showDate && (
+                                <div className="my-3 flex items-center gap-3">
+                                  <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                                  <span className="text-xs text-gray-400">{formatDate(msg.createdAt)}</span>
+                                  <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                                </div>
+                              )}
+                              <div className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                                {/* 아바타 (상대방만) */}
+                                {!isMine && (
+                                  <div className={`h-8 w-8 shrink-0 rounded-full bg-violet-200 text-center text-sm font-bold leading-8 text-violet-700 dark:bg-violet-800 dark:text-violet-300 ${showAvatar ? '' : 'invisible'}`}>
+                                    {msg.user.name[0]}
+                                  </div>
+                                )}
+                                <div className={`flex max-w-[70%] flex-col gap-0.5 ${isMine ? 'items-end' : 'items-start'}`}>
+                                  {/* 이름 (상대방 + 첫 메시지일 때만) */}
+                                  {!isMine && showAvatar && (
+                                    <span className="ml-1 text-xs font-medium text-gray-500 dark:text-gray-400">{msg.user.name}</span>
+                                  )}
+                                  <div className={`flex items-end gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                                    <div
+                                      className={`group relative rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                                        isMine
+                                          ? 'rounded-br-sm bg-violet-500 text-white'
+                                          : 'rounded-bl-sm bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
+                                      }`}
+                                    >
+                                      {msg.content}
+                                      {/* 내 메시지 삭제 버튼 */}
+                                      {isMine && (
+                                        <button
+                                          onClick={() => handleDeleteMessage(msg.id)}
+                                          className="absolute -top-5 right-0 hidden text-xs text-gray-400 hover:text-red-400 group-hover:block"
+                                        >
+                                          삭제
+                                        </button>
+                                      )}
+                                    </div>
+                                    <span className="shrink-0 text-[10px] text-gray-400">{formatTime(msg.createdAt)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                      <div ref={chatBottomRef} />
+                    </div>
+
+                    {/* 메시지 입력 */}
+                    <form
+                      onSubmit={handleSendMessage}
+                      className="border-t border-gray-100 p-3 dark:border-gray-800"
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          placeholder="메시지를 입력하세요..."
+                          className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:border-violet-400 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+                          autoComplete="off"
+                        />
+                        <button
+                          type="submit"
+                          disabled={sendingMsg || !chatInput.trim()}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500 text-white transition hover:bg-violet-600 disabled:opacity-40"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083zm-1.833 1.89L6.637 10.07l-.215-.338L.767 6.586z"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                )}
+
+                {/* 콘티 공유 탭 */}
+                {communityTab === 'conti' && (
+                  <div className="flex-1 overflow-y-auto">
+                    {loadingContis ? (
+                      <div className="flex h-full items-center justify-center text-sm text-gray-400">불러오는 중...</div>
+                    ) : teamContis.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center py-20 text-center">
+                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-violet-400" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">공유된 콘티가 없습니다</p>
+                        <p className="mt-1 text-xs text-gray-400">콘티 편집 페이지에서 이 팀에 공유할 수 있습니다.</p>
+                      </div>
+                    ) : (
+                      <div className="p-4">
                         <div className="grid gap-3 sm:grid-cols-2">
-                          {contis.map((conti) => (
+                          {teamContis.map((conti) => (
                             <Link
                               key={conti.id}
                               href={`/dashboard/contis/${conti.id}`}
@@ -421,11 +636,11 @@ export default function TeamPage() {
                           ))}
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
-                )
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </section>
         </div>
       </main>

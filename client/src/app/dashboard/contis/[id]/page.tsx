@@ -49,6 +49,9 @@ export default function ContiEditPage() {
   const sheetInputRef = useRef<HTMLInputElement>(null);
   const sheetTargetSongId = useRef<string | null>(null);
 
+  // 악보 inline 뷰어
+  const [expandedSheetId, setExpandedSheetId] = useState<string | null>(null);
+
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
@@ -262,11 +265,27 @@ export default function ContiEditPage() {
     }
   };
 
+  const [copied, setCopied] = useState(false);
+  const handleShareLink = async () => {
+    const url = window.location.href;
+    const title = conti?.title ?? 'WorshipLog 콘티';
+    if (navigator.share) {
+      await navigator.share({ title, url }).catch(() => null);
+    } else {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   const handlePrint = () => {
     const prev = document.title;
     document.title = conti?.title ?? 'WorshipLog';
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) document.body.classList.add('print-mobile');
     window.print();
     document.title = prev;
+    document.body.classList.remove('print-mobile');
   };
 
   const filteredSongs = allSongs.filter((s) => {
@@ -298,10 +317,13 @@ export default function ContiEditPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <style>{`
-                @media print {
-                    @page { margin: 0; size: A4; }
-                }
-            `}</style>
+        @media print {
+          @page { margin: 0; size: A4; }
+        }
+        @media print {
+          body.print-mobile { zoom: 80%; }
+        }
+      `}</style>
       {/* 프린트 전용 레이아웃 */}
       <div className="hidden print:block" style={{ fontFamily: 'Arial, sans-serif', color: '#111' }}>
         {conti.songs.map((cs, index) => {
@@ -399,7 +421,7 @@ export default function ContiEditPage() {
       <div className="print:hidden">
         <AppHeader page="콘티 편집" />
 
-        <main className="mx-auto max-w-5xl px-6 py-10">
+        <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
           {/* 뒤로가기 */}
           <button
             onClick={() => router.back()}
@@ -424,7 +446,7 @@ export default function ContiEditPage() {
           )}
 
           {/* 콘티 기본정보 */}
-          <div className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+          <div className="mb-6 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700 sm:p-6">
             {editingInfo ? (
               <form onSubmit={handleSaveInfo} className="space-y-3">
                 <input
@@ -467,7 +489,7 @@ export default function ContiEditPage() {
             ) : (
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{conti.title}</h1>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">{conti.title}</h1>
                   {conti.worshipDate && (
                     <p className="mt-1 text-base text-violet-500 dark:text-violet-400">
                       {new Date(conti.worshipDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -519,22 +541,26 @@ export default function ContiEditPage() {
           </div>
 
           {/* 찬양 목록 */}
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white sm:text-lg">
               찬양 목록 <span className="ml-1 text-sm font-normal text-gray-400">({conti.songs.length}곡)</span>
             </h2>
-            <div className="flex gap-2">
-              <div className="print:hidden flex flex-col items-end gap-0.5">
-                <button
-                  onClick={handlePrint}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
-                >
-                  PDF 저장
-                </button>
-              </div>
+            <div className="print:hidden flex shrink-0 gap-2">
+              <button
+                onClick={handleShareLink}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
+              >
+                {copied ? '복사됨!' : '공유하기'}
+              </button>
+              <button
+                onClick={handlePrint}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
+              >
+                PDF 저장
+              </button>
               <button
                 onClick={handleOpenAddSong}
-                className="print:hidden rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
               >
                 + 찬양 추가
               </button>
@@ -550,100 +576,114 @@ export default function ContiEditPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {conti.songs.map((cs, index) => (
-                <div
-                  key={cs.id}
-                  className="flex items-center gap-3 rounded-xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
-                >
-                  {/* 순서 번호 */}
-                  <span className="w-7 shrink-0 text-center font-bold text-gray-300 dark:text-gray-600">{index + 1}</span>
+              {conti.songs.map((cs, index) => {
+                const isPdf = cs.song.sheetMusicUrl?.toLowerCase().includes('.pdf');
+                const sheetOpen = expandedSheetId === cs.id;
+                return (
+                  <div
+                    key={cs.id}
+                    className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
+                  >
+                    {/* 곡 행 */}
+                    <div className="flex items-center gap-2 px-4 py-3 sm:gap-3 sm:px-5 sm:py-4">
+                      {/* 순서 번호 */}
+                      <span className="w-6 shrink-0 text-center text-sm font-bold text-gray-300 dark:text-gray-600 sm:w-7">{index + 1}</span>
 
-                  {/* 곡 정보 */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-medium text-gray-900 dark:text-white">{cs.song.title}</span>
-                      {cs.key && (
-                        <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                          {cs.key}
-                        </span>
-                      )}
-                      {cs.song.sheetMusicUrl ? (
-                        <a
-                          href={cs.song.sheetMusicUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
-                        >
-                          악보
-                        </a>
-                      ) : (
+                      {/* 곡 정보 */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white sm:text-base">{cs.song.title}</span>
+                          {cs.key && (
+                            <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                              {cs.key}
+                            </span>
+                          )}
+                          {cs.song.sheetMusicUrl ? (
+                            <button
+                              onClick={() => setExpandedSheetId(sheetOpen ? null : cs.id)}
+                              className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
+                            >
+                              {sheetOpen ? '악보 닫기' : '악보 보기'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                sheetTargetSongId.current = cs.song.id;
+                                sheetInputRef.current?.click();
+                              }}
+                              disabled={uploadingSheetId === cs.song.id}
+                              className="print:hidden rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-500 hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-900/20 dark:text-blue-400"
+                            >
+                              {uploadingSheetId === cs.song.id ? '...' : '+ 악보'}
+                            </button>
+                          )}
+                        </div>
+                        {cs.song.artist && <p className="mt-0.5 text-xs text-gray-400">{cs.song.artist}</p>}
+                        {cs.note && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{cs.note}</p>}
+                      </div>
+
+                      {/* 액션 버튼 */}
+                      <div className="print:hidden flex shrink-0 items-center gap-0.5 sm:gap-1">
                         <button
-                          onClick={() => {
-                            sheetTargetSongId.current = cs.song.id;
-                            sheetInputRef.current?.click();
-                          }}
-                          disabled={uploadingSheetId === cs.song.id}
-                          className="print:hidden rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-500 hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-900/20 dark:text-blue-400"
+                          onClick={() => handleMove(index, 'up')}
+                          disabled={index === 0}
+                          className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-20 dark:hover:bg-gray-800"
                         >
-                          {uploadingSheetId === cs.song.id ? '...' : '+ 악보'}
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
                         </button>
-                      )}
+                        <button
+                          onClick={() => handleMove(index, 'down')}
+                          disabled={index === conti.songs.length - 1}
+                          className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-20 dark:hover:bg-gray-800"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => { setEditingCs(cs); setEditKey(cs.key ?? ''); setEditNote(cs.note ?? ''); }}
+                          className="rounded p-1.5 text-gray-400 hover:bg-violet-50 hover:text-violet-500 dark:hover:bg-violet-900/20"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleRemoveSong(cs.id)}
+                          className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                    {cs.song.artist && <p className="text-xs text-gray-400">{cs.song.artist}</p>}
-                    {cs.note && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{cs.note}</p>}
-                  </div>
 
-                  {/* 액션 버튼 */}
-                  <div className="print:hidden flex shrink-0 items-center gap-1">
-                    {/* 위/아래 이동 */}
-                    <button
-                      onClick={() => handleMove(index, 'up')}
-                      disabled={index === 0}
-                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-20 dark:hover:bg-gray-800"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleMove(index, 'down')}
-                      disabled={index === conti.songs.length - 1}
-                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-20 dark:hover:bg-gray-800"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {/* 편집 */}
-                    <button
-                      onClick={() => {
-                        setEditingCs(cs);
-                        setEditKey(cs.key ?? '');
-                        setEditNote(cs.note ?? '');
-                      }}
-                      className="rounded p-1 text-gray-400 hover:bg-violet-50 hover:text-violet-500 dark:hover:bg-violet-900/20"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                        />
-                      </svg>
-                    </button>
-                    {/* 삭제 */}
-                    <button
-                      onClick={() => handleRemoveSong(cs.id)}
-                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                    {/* 악보 inline 뷰어 */}
+                    {sheetOpen && cs.song.sheetMusicUrl && (
+                      <div className="border-t border-gray-100 dark:border-gray-800">
+                        {isPdf ? (
+                          <iframe
+                            src={cs.song.sheetMusicUrl}
+                            className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]"
+                            title={`${cs.song.title} 악보`}
+                          />
+                        ) : (
+                          <div className="flex justify-center p-4">
+                            <img
+                              src={cs.song.sheetMusicUrl}
+                              alt={`${cs.song.title} 악보`}
+                              className="max-w-full rounded-lg object-contain"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           {/* 숨겨진 파일 입력 */}

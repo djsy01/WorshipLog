@@ -75,4 +75,27 @@ export class TeamsController {
   getTeamContis(@CurrentUser('sub') userId: string, @Param('id') teamId: string) {
     return this.teamsService.getTeamContis(userId, teamId);
   }
+
+  @Get(':id/posts')
+  getTeamPosts(@CurrentUser('sub') userId: string, @Param('id') teamId: string) {
+    return this.teamsService.getTeamPosts(userId, teamId);
+  }
+
+  @Post(':id/posts')
+  createPost(
+    @CurrentUser('sub') userId: string,
+    @Param('id') teamId: string,
+    @Body() dto: { content: string },
+  ) {
+    return this.teamsService.createPost(userId, teamId, dto);
+  }
+
+  @Delete(':id/posts/:postId')
+  deletePost(
+    @CurrentUser('sub') userId: string,
+    @Param('id') teamId: string,
+    @Param('postId') postId: string,
+  ) {
+    return this.teamsService.deletePost(userId, teamId, postId);
+  }
 }

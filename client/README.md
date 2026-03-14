@@ -34,13 +34,19 @@ client/src/
 │   │       └── confirm/page.tsx # 인증 토큰 처리 → 대시보드 이동
 │   └── dashboard/
 │       ├── page.tsx            # 메인 대시보드 (인증 필요)
-│       └── songs/
-│           └── page.tsx        # 찬양 목록/검색/추가/수정/삭제
+│       ├── songs/
+│       │   └── page.tsx        # 찬양 목록/검색/추가/수정/삭제
+│       ├── contis/
+│       │   ├── page.tsx        # 콘티 목록
+│       │   └── [id]/page.tsx   # 콘티 상세/편집 (악보 뷰어, PDF 출력, 공유, 팀 공유)
+│       └── team/
+│           └── page.tsx        # 팀스페이스 (팀 목록 + 채팅 + 콘티 공유 탭)
 ├── components/
 │   ├── AppHeader.tsx           # 공통 헤더 (ThemeToggle + 로그아웃)
-│   └── ThemeToggle.tsx         # 라이트/다크 모드 전환 버튼
+│   ├── ThemeToggle.tsx         # 라이트/다크 모드 전환 버튼
+│   └── ServerWakeup.tsx        # 서버 슬립 해제 로딩 화면 (Render cold start 대응)
 └── lib/
-    └── api.ts                  # API 클라이언트 (authApi, songsApi, bibleApi, spotifyApi)
+    └── api.ts                  # API 클라이언트 (authApi, songsApi, bibleApi, spotifyApi, contisApi, teamsApi)
 ```
 
 ---
@@ -96,6 +102,22 @@ npm run start
 - **오늘의 말씀 카드** — 구절 클릭 시 관련 찬양 검색
 - 찬양 추가 / **수정** (연필 아이콘) / 삭제 (휴지통 아이콘)
 - 성경구절 여러 개 입력 가능 (예: "시 23:1, 빌 4:13")
+
+### 콘티 상세 페이지 (`/dashboard/contis/[id]`)
+
+- 곡 추가/삭제/순서 변경, Key·송폼 설정
+- **악보 인라인 뷰어** — PDF는 iframe, 이미지는 img로 카드 하단에 인라인 표시
+- **PDF 저장** — `window.print()` 전용 레이아웃, 모바일은 80% 축소 출력
+- **공유하기** — 모바일: Web Share API, 데스크탑: URL 클립보드 복사 ("복사됨!" 2초)
+- **팀 공유** — 소유자만 팀 선택 모달로 콘티 공유/해제
+
+### 팀스페이스 (`/dashboard/team`)
+
+- 2단 레이아웃 (팀 목록 좌측 + 콘텐츠 우측)
+- 팀 생성 / 초대 링크 생성(24시간) / 팀 참여
+- 방장: 멤버 추방, 방장 이전 / 일반: 팀 나가기
+- **커뮤니티 탭** — 카카오톡 스타일 채팅 버블, 날짜 구분선, 메시지 삭제
+- **콘티 공유 탭** — 해당 팀에 공유된 콘티 목록 (2열 그리드)
 
 ---
 
