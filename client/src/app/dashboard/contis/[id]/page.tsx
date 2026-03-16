@@ -32,9 +32,10 @@ export default function ContiEditPage() {
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [addingSong, setAddingSong] = useState(false);
 
-  // 곡 편집 (key/note)
+  // 곡 편집 (key/tempo/note)
   const [editingCs, setEditingCs] = useState<ContiSong | null>(null);
   const [editKey, setEditKey] = useState('');
+  const [editTempo, setEditTempo] = useState('');
   const [editNote, setEditNote] = useState('');
   const [savingCs, setSavingCs] = useState(false);
 
@@ -83,7 +84,11 @@ export default function ContiEditPage() {
     const stored = localStorage.getItem('user');
     if (stored) setMyUserId((JSON.parse(stored) as { id: string }).id);
     const token = localStorage.getItem('accessToken');
-    if (token) teamsApi.list(token).then(setMyTeams).catch(() => null);
+    if (token)
+      teamsApi
+        .list(token)
+        .then(setMyTeams)
+        .catch(() => null);
     loadConti();
   }, [loadConti]);
 
@@ -224,6 +229,7 @@ export default function ContiEditPage() {
     try {
       await contisApi.updateSong(token, contiId, editingCs.id, {
         key: editKey || undefined,
+        tempo: editTempo ? parseInt(editTempo) : null,
         note: editNote.trim() || undefined,
       });
       await loadConti();
@@ -315,15 +321,10 @@ export default function ContiEditPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <style>{`
         @media print {
-          @page { margin: 0; size: A4; }
+          @page { margin: 8mm; size: A4; }
           body { margin: 0; padding: 0; }
           .print-content {
             zoom: 0.8;
-            -webkit-transform: scale(0.8);
-            -webkit-transform-origin: top left;
-            transform: scale(0.8);
-            transform-origin: top left;
-            width: 125%;
           }
         }
       `}</style>
@@ -376,7 +377,7 @@ export default function ContiEditPage() {
                         tempo
                       </td>
                       <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', textAlign: 'center', color: '#333' }}>
-                        {cs.song.tempo ? `${cs.song.tempo} BPM` : '-'}
+                        {(cs.tempo ?? cs.song.tempo) ? `${cs.tempo ?? cs.song.tempo} BPM` : '-'}
                       </td>
                     </tr>
                     {(cs.note || cs.key) && (
@@ -402,7 +403,7 @@ export default function ContiEditPage() {
                       key: cs.key ?? undefined,
                       artist: cs.song.artist ?? undefined,
                       note: cs.note ?? undefined,
-                      tempo: cs.song.tempo ?? undefined,
+                      tempo: cs.tempo ?? cs.song.tempo ?? undefined,
                     }}
                     contiTitle={conti.title}
                     contiDate={
@@ -413,7 +414,7 @@ export default function ContiEditPage() {
                   />
                 ) : (
                   <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 악보`} style={{ maxWidth: '650px', width: '100%' }} />
+                    <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 악보`} style={{ maxWidth: '920px', width: '100%' }} />
                   </div>
                 ))}
             </div>
@@ -503,17 +504,24 @@ export default function ContiEditPage() {
                   {conti.teamId && (
                     <div className="mt-2 flex items-center gap-2">
                       <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"
+                          />
                         </svg>
                         팀 공유 중
                       </span>
                       {conti.createdBy === myUserId && (
-                        <button
-                          onClick={handleUnshare}
-                          disabled={sharing}
-                          className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50"
-                        >
+                        <button onClick={handleUnshare} disabled={sharing} className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50">
                           공유 해제
                         </button>
                       )}
@@ -535,7 +543,12 @@ export default function ContiEditPage() {
                     className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -544,7 +557,7 @@ export default function ContiEditPage() {
           </div>
 
           {/* 찬양 목록 */}
-          <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="mb-1 sm:mb-4 flex items-center justify-between gap-2">
             <h2 className="text-base font-bold text-gray-900 dark:text-white sm:text-lg">
               찬양 목록 <span className="ml-1 text-sm font-normal text-gray-400">({conti.songs.length}곡)</span>
             </h2>
@@ -561,14 +574,12 @@ export default function ContiEditPage() {
               >
                 PDF 저장
               </button>
-              <button
-                onClick={handleOpenAddSong}
-                className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
-              >
+              <button onClick={handleOpenAddSong} className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700">
                 + 찬양 추가
               </button>
             </div>
           </div>
+          <p className="sm:hidden print:hidden mb-3 text-[11px] text-gray-400">💡 PDF 저장 시 크기 조절을 80%로 설정하세요</p>
 
           {conti.songs.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center dark:border-gray-700">
@@ -583,10 +594,7 @@ export default function ContiEditPage() {
                 const isPdf = cs.song.sheetMusicUrl?.toLowerCase().includes('.pdf');
                 const sheetOpen = expandedSheetId === cs.id;
                 return (
-                  <div
-                    key={cs.id}
-                    className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
-                  >
+                  <div key={cs.id} className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                     {/* 곡 행 */}
                     <div className="flex items-center gap-2 px-4 py-3 sm:gap-3 sm:px-5 sm:py-4">
                       {/* 순서 번호 */}
@@ -599,6 +607,11 @@ export default function ContiEditPage() {
                           {cs.key && (
                             <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                               {cs.key}
+                            </span>
+                          )}
+                          {(cs.tempo ?? cs.song.tempo) != null && (
+                            <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                              {cs.tempo ?? cs.song.tempo} BPM
                             </span>
                           )}
                           {cs.song.sheetMusicUrl ? (
@@ -646,11 +659,21 @@ export default function ContiEditPage() {
                           </svg>
                         </button>
                         <button
-                          onClick={() => { setEditingCs(cs); setEditKey(cs.key ?? ''); setEditNote(cs.note ?? ''); }}
+                          onClick={() => {
+                            setEditingCs(cs);
+                            setEditKey(cs.key ?? '');
+                            setEditTempo(cs.tempo != null ? String(cs.tempo) : '');
+                            setEditNote(cs.note ?? '');
+                          }}
                           className="rounded p-1.5 text-gray-400 hover:bg-violet-50 hover:text-violet-500 dark:hover:bg-violet-900/20"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                            />
                           </svg>
                         </button>
                         <button
@@ -668,18 +691,10 @@ export default function ContiEditPage() {
                     {sheetOpen && cs.song.sheetMusicUrl && (
                       <div className="border-t border-gray-100 dark:border-gray-800">
                         {isPdf ? (
-                          <iframe
-                            src={cs.song.sheetMusicUrl}
-                            className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]"
-                            title={`${cs.song.title} 악보`}
-                          />
+                          <iframe src={cs.song.sheetMusicUrl} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 악보`} />
                         ) : (
                           <div className="flex justify-center p-4">
-                            <img
-                              src={cs.song.sheetMusicUrl}
-                              alt={`${cs.song.title} 악보`}
-                              className="max-w-full rounded-lg object-contain"
-                            />
+                            <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 악보`} className="max-w-full rounded-lg object-contain" />
                           </div>
                         )}
                       </div>
@@ -836,6 +851,20 @@ export default function ContiEditPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
+                  템포 (BPM)
+                  {editingCs.song.tempo && <span className="ml-1 text-xs text-gray-400">기본: {editingCs.song.tempo}</span>}
+                </label>
+                <input
+                  type="number"
+                  value={editTempo}
+                  onChange={(e) => setEditTempo(e.target.value)}
+                  placeholder="직접 입력"
+                  min={1}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">송폼</label>

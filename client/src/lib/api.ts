@@ -200,6 +200,7 @@ export interface ContiSong {
   contiId: string;
   songId: string;
   key: string | null;
+  tempo: number | null;
   note: string | null;
   orderIndex: number;
   song: Song;
@@ -252,7 +253,7 @@ export const contisApi = {
       body: JSON.stringify(body),
     }),
 
-  updateSong: (token: string, contiId: string, contiSongId: string, body: { key?: string; note?: string }) =>
+  updateSong: (token: string, contiId: string, contiSongId: string, body: { key?: string; tempo?: number | null; note?: string }) =>
     request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}`, {
       method: 'PATCH',
       headers: authHeaders(token),
