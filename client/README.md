@@ -12,7 +12,7 @@ Next.js 15 + TypeScript + Tailwind CSS v4 기반 프론트엔드
 | Language  | TypeScript                       |
 | Style     | Tailwind CSS v4                  |
 | Font      | Geist (Vercel)                   |
-| 다크모드  | class 기반 (`localStorage` 저장) |
+| 다크모드  | class 기반 (시스템 `prefers-color-scheme` 자동 적용) |
 
 ---
 
@@ -26,7 +26,7 @@ client/src/
 │   ├── globals.css             # Tailwind + dark variant 설정
 │   ├── icon.svg                # 파비콘 (Prism 로고, Next.js 자동 인식)
 │   ├── (auth)/
-│   │   ├── layout.tsx          # 인증 페이지 공통 레이아웃 (중앙 정렬 + ThemeToggle)
+│   │   ├── layout.tsx          # 인증 페이지 공통 레이아웃 (중앙 정렬)
 │   │   ├── login/page.tsx      # 로그인 (Prism 로고 포함)
 │   │   ├── register/page.tsx   # 회원가입 (Prism 로고 포함)
 │   │   └── verify-email/
@@ -42,8 +42,7 @@ client/src/
 │       └── team/
 │           └── page.tsx        # 팀스페이스 (팀 목록 + 채팅 + 콘티 공유 탭)
 ├── components/
-│   ├── AppHeader.tsx           # 공통 헤더 (ThemeToggle + 로그아웃)
-│   ├── ThemeToggle.tsx         # 라이트/다크 모드 전환 버튼
+│   ├── AppHeader.tsx           # 공통 헤더 (로그아웃)
 │   └── ServerWakeup.tsx        # 서버 슬립 해제 로딩 화면 (Render cold start 대응)
 └── lib/
     └── api.ts                  # API 클라이언트 (authApi, songsApi, bibleApi, spotifyApi, contisApi, teamsApi)
@@ -89,7 +88,6 @@ npm run start
 | `accessToken`   | JWT Access Token (15분)  |
 | `refreshToken`  | JWT Refresh Token (7일)  |
 | `user`          | `{ id, email, name }` JSON |
-| `theme`         | `"light"` \| `"dark"`   |
 
 ---
 

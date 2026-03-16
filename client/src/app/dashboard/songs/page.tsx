@@ -233,7 +233,7 @@ function SongsContent() {
                 <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-400 dark:text-violet-500">
                   오늘의 말씀
                 </p>
-                <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">{verse.content}</p>
+                <p className="font-lovespring text-sm leading-relaxed text-gray-800 dark:text-gray-200">{verse.content}</p>
                 <p className="mt-1.5 text-xs font-medium text-violet-500 dark:text-violet-400">
                   {formatRef(verse)}
                 </p>
@@ -395,10 +395,10 @@ function SongsContent() {
             </h2>
 
             <div className="space-y-3">
-              {/* Spotify 검색 */}
-              <div className="rounded-xl border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
-                <p className="mb-2 text-xs font-semibold text-green-700 dark:text-green-400">
-                  🎵 Spotify에서 곡 가져오기
+              {/* 곡 검색 */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
+                <p className="mb-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
+                  🎵 곡 검색으로 가져오기
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -407,23 +407,23 @@ function SongsContent() {
                     value={spotifyQuery}
                     onChange={(e) => setSpotifyQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSpotifySearch()}
-                    className="flex-1 rounded-lg border border-green-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-400 dark:border-green-700 dark:bg-gray-800 dark:text-white"
+                    className="flex-1 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-blue-700 dark:bg-gray-800 dark:text-white"
                   />
                   <button
                     onClick={handleSpotifySearch}
                     disabled={spotifyLoading || !spotifyQuery.trim()}
-                    className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
                   >
                     {spotifyLoading ? '...' : '검색'}
                   </button>
                 </div>
                 {spotifyResults.length > 0 && (
-                  <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-green-200 bg-white dark:border-green-700 dark:bg-gray-800">
+                  <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-blue-200 bg-white dark:border-blue-700 dark:bg-gray-800">
                     {spotifyResults.map((track) => (
                       <li key={track.id}>
                         <button
                           onMouseDown={() => applySpotifyTrack(track)}
-                          className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-green-50 dark:hover:bg-green-900/20"
+                          className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{track.title}</p>

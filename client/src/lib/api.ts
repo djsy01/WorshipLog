@@ -167,13 +167,32 @@ export interface BibleVerse {
   content: string;
 }
 
+export interface Meditation {
+  id: string;
+  userId: string;
+  book: string;
+  chapter: number;
+  verse: number;
+  content: string;
+  note: string | null;
+  createdAt: string;
+}
+
 export const bibleApi = {
   today: (token: string) =>
-    request<BibleVerse>('/bible/today', { headers: authHeaders(token) }),
+    request<BibleVerse & { meditationId: string }>('/bible/today', { headers: authHeaders(token) }),
   random: (token: string) =>
     request<BibleVerse>('/bible/random', { headers: authHeaders(token) }),
   searchByRef: (token: string, ref: string) =>
     request<BibleVerse[]>(`/bible/search?ref=${encodeURIComponent(ref)}`, { headers: authHeaders(token) }),
+  getMeditations: (token: string) =>
+    request<Meditation[]>('/bible/meditations', { headers: authHeaders(token) }),
+  updateNote: (token: string, id: string, note: string) =>
+    request<{ count: number }>(`/bible/meditations/${id}`, {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify({ note }),
+    }),
 };
 
 export interface ContiSong {
@@ -405,6 +424,65 @@ export const teamsApi = {
 
   deletePost: (token: string, teamId: string, postId: string) =>
     request<{ message: string }>(`/teams/${teamId}/posts/${postId}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
+};
+
+export interface Post {
+  id: string;
+  userId: string;
+  content: string;
+  isAnonymous: boolean;
+  meditationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  author: string;
+  isMine: boolean;
+  meditation: { book: string; chapter: number; verse: number; content: string } | null;
+  _count: { comments: number };
+}
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  userId: string;
+  content: string;
+  isAnonymous: boolean;
+  createdAt: string;
+  author: string;
+  isMine: boolean;
+}
+
+export const communityApi = {
+  list: (token: string, cursor?: string) =>
+    request<Post[]>(`/posts${cursor ? `?cursor=${cursor}` : ''}`, { headers: authHeaders(token) }),
+
+  create: (token: string, body: { content: string; isAnonymous?: boolean; meditationId?: string }) =>
+    request<Post>('/posts', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  remove: (token: string, postId: string) =>
+    request<{ message: string }>(`/posts/${postId}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
+
+  getComments: (token: string, postId: string) =>
+    request<PostComment[]>(`/posts/${postId}/comments`, { headers: authHeaders(token) }),
+
+  createComment: (token: string, postId: string, body: { content: string; isAnonymous?: boolean }) =>
+    request<PostComment>(`/posts/${postId}/comments`, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify(body),
+    }),
+
+  removeComment: (token: string, postId: string, commentId: string) =>
+    request<{ message: string }>(`/posts/${postId}/comments/${commentId}`, {
       method: 'DELETE',
       headers: authHeaders(token),
     }),

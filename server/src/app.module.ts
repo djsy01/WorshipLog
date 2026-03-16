@@ -9,6 +9,7 @@ import { SpotifyModule } from './spotify/spotify.module';
 import { ContisModule } from './contis/contis.module';
 import { HistoryModule } from './history/history.module';
 import { TeamsModule } from './teams/teams.module';
+import { PostsModule } from './posts/posts.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -23,6 +24,7 @@ import { HealthController } from './health/health.controller';
     ContisModule,
     HistoryModule,
     TeamsModule,
+    PostsModule,
   ],
   controllers: [HealthController],
 })

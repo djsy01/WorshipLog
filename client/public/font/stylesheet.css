@@ -1,0 +1,9 @@
+@font-face {
+    font-family: 'Gabia Solmee';
+    src: url('GabiaSolmee.woff2') format('woff2'),
+        url('GabiaSolmee.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+

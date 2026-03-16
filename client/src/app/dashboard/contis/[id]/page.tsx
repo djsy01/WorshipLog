@@ -281,11 +281,8 @@ export default function ContiEditPage() {
   const handlePrint = () => {
     const prev = document.title;
     document.title = conti?.title ?? 'WorshipLog';
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) document.body.classList.add('print-mobile');
     window.print();
     document.title = prev;
-    document.body.classList.remove('print-mobile');
   };
 
   const filteredSongs = allSongs.filter((s) => {
@@ -319,13 +316,19 @@ export default function ContiEditPage() {
       <style>{`
         @media print {
           @page { margin: 0; size: A4; }
-        }
-        @media print {
-          body.print-mobile { zoom: 80%; }
+          body { margin: 0; padding: 0; }
+          .print-content {
+            zoom: 0.8;
+            -webkit-transform: scale(0.8);
+            -webkit-transform-origin: top left;
+            transform: scale(0.8);
+            transform-origin: top left;
+            width: 125%;
+          }
         }
       `}</style>
       {/* 프린트 전용 레이아웃 */}
-      <div className="hidden print:block" style={{ fontFamily: 'Arial, sans-serif', color: '#111' }}>
+      <div className="hidden print:block print-content" style={{ fontFamily: 'Arial, sans-serif', color: '#111' }}>
         {conti.songs.map((cs, index) => {
           const isPdf = cs.song.sheetMusicUrl?.toLowerCase().includes('.pdf');
           const colCount = cs.song.artist ? 5 : 4;
