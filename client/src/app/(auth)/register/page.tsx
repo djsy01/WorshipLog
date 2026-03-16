@@ -26,8 +26,12 @@ export default function RegisterPage() {
             setError('비밀번호가 일치하지 않습니다.');
             return;
         }
-        if (form.password.length < 6) {
-            setError('비밀번호는 6자 이상이어야 합니다.');
+        if (form.password.length < 8) {
+            setError('비밀번호는 8자 이상이어야 합니다.');
+            return;
+        }
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(form.password)) {
+            setError('비밀번호에 특수문자를 포함해주세요.');
             return;
         }
 

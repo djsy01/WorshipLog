@@ -59,7 +59,10 @@ export default function AppHeader({ page }: AppHeaderProps) {
     return (
         <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 px-6 py-4 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
             <div className="mx-auto flex max-w-5xl items-center justify-between">
-                <div className="flex items-center gap-2 font-bold min-w-0">
+                <div
+                    className="flex items-center gap-2 font-bold min-w-0 cursor-pointer"
+                    onClick={() => router.push('/dashboard')}
+                >
                     <PrismLogo className="w-8 h-8 sm:w-10 sm:h-10 shrink-0" />
                     <span className="text-violet-600 text-base sm:text-lg shrink-0">WorshipLog</span>
                     {page && (

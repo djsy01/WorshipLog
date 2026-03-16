@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { communityApi, Post, PostComment } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 
+function stripTags(text: string): string {
+  return text.replace(/<[^>]*>/g, '');
+}
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -29,7 +33,7 @@ function CommentSection({ post, token }: { post: Post; token: string }) {
 
   async function submit() {
     if (!input.trim()) return;
-    const c = await communityApi.createComment(token, post.id, { content: input.trim(), isAnonymous: anon });
+    const c = await communityApi.createComment(token, post.id, { content: stripTags(input.trim()), isAnonymous: anon });
     setComments((prev) => [...prev, c]);
     setInput('');
   }
@@ -69,6 +73,7 @@ function CommentSection({ post, token }: { post: Post; token: string }) {
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && submit()}
           placeholder="댓글 작성..."
           className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
+          autoComplete="off"
         />
         <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
           <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded" />
@@ -118,7 +123,7 @@ export default function CommunityPage() {
 
   async function submit() {
     if (!content.trim()) return;
-    const post = await communityApi.create(getToken(), { content: content.trim(), isAnonymous: anon });
+    const post = await communityApi.create(getToken(), { content: stripTags(content.trim()), isAnonymous: anon });
     setPosts((prev) => [post, ...prev]);
     setContent('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
@@ -157,6 +162,7 @@ export default function CommunityPage() {
             placeholder="나눔고 싶은 말씀이나 묵상을 적어보세요..."
             className="w-full resize-none bg-transparent text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none min-h-18"
             rows={3}
+            autoComplete="off"
           />
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
             <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">

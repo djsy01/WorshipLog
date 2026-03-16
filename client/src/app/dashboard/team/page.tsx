@@ -6,6 +6,10 @@ import Link from 'next/link';
 import { teamsApi, Team, Conti, CommunityPost } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 
+function stripTags(text: string): string {
+  return text.replace(/<[^>]*>/g, '');
+}
+
 type CommunityTab = 'chat' | 'conti';
 
 export default function TeamPage() {
@@ -98,6 +102,7 @@ export default function TeamPage() {
   const [joinToken, setJoinToken] = useState('');
   const [joining, setJoining] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [joinError, setJoinError] = useState('');
 
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
@@ -185,7 +190,7 @@ export default function TeamPage() {
     if (!token) return;
     setSendingMsg(true);
     try {
-      const msg = await teamsApi.createPost(token, selectedTeamId, { content: chatInput.trim() });
+      const msg = await teamsApi.createPost(token, selectedTeamId, { content: stripTags(chatInput.trim()) });
       setMessages((prev) => [...prev, msg]);
       setChatInput('');
     } catch (e) {
@@ -243,13 +248,14 @@ export default function TeamPage() {
     const token = getToken();
     if (!token || !joinToken.trim()) return;
     setJoining(true);
+    setJoinError('');
     try {
       const team = await teamsApi.join(token, joinToken.trim());
       if (team) setTeams((prev) => [...prev, team]);
       setShowJoin(false);
       setJoinToken('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : '가입 실패');
+      setJoinError(e instanceof Error ? e.message : '가입 실패');
     } finally {
       setJoining(false);
     }
@@ -805,8 +811,11 @@ export default function TeamPage() {
                 required
                 autoFocus
               />
+              {joinError && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">{joinError}</p>
+              )}
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowJoin(false)} className="flex-1 rounded-lg border border-gray-200 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400">취소</button>
+                <button type="button" onClick={() => { setShowJoin(false); setJoinToken(''); setJoinError(''); }} className="flex-1 rounded-lg border border-gray-200 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400">취소</button>
                 <button type="submit" disabled={joining || !joinToken.trim()} className="flex-1 rounded-lg bg-violet-600 py-2 text-sm text-white hover:bg-violet-700 disabled:opacity-50">
                   {joining ? '참여 중...' : '참여하기'}
                 </button>

@@ -1,6 +1,5 @@
 import {
   Injectable,
-  ForbiddenException,
   NotFoundException,
   InternalServerErrorException,
 } from '@nestjs/common';
@@ -31,7 +30,6 @@ export class SheetMusicService {
   async upload(userId: string, songId: string, file: Express.Multer.File) {
     const song = await this.prisma.song.findUnique({ where: { id: songId } });
     if (!song) throw new NotFoundException('찬양을 찾을 수 없습니다.');
-    if (song.createdBy !== userId) throw new ForbiddenException('업로드 권한이 없습니다.');
 
     // 기존 파일 삭제
     if (song.sheetMusicUrl) {
@@ -59,7 +57,6 @@ export class SheetMusicService {
   async remove(userId: string, songId: string) {
     const song = await this.prisma.song.findUnique({ where: { id: songId } });
     if (!song) throw new NotFoundException('찬양을 찾을 수 없습니다.');
-    if (song.createdBy !== userId) throw new ForbiddenException('삭제 권한이 없습니다.');
 
     if (song.sheetMusicUrl) {
       const path = this.extractPath(song.sheetMusicUrl);
