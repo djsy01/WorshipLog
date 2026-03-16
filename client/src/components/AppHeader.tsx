@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
-import ThemeToggle from '@/components/ThemeToggle';
 
 function PrismLogo({ className = 'w-10 h-10' }: { className?: string }) {
     return (
@@ -60,19 +59,18 @@ export default function AppHeader({ page }: AppHeaderProps) {
     return (
         <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 px-6 py-4 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
             <div className="mx-auto flex max-w-5xl items-center justify-between">
-                <div className="flex items-center gap-2 text-lg font-bold">
-                    <PrismLogo className="w-10 h-10" />
-                    <span className="text-violet-600">WorshipLog</span>
+                <div className="flex items-center gap-2 font-bold min-w-0">
+                    <PrismLogo className="w-8 h-8 sm:w-10 sm:h-10 shrink-0" />
+                    <span className="text-violet-600 text-base sm:text-lg shrink-0">WorshipLog</span>
                     {page && (
                         <>
-                            <span className="text-gray-300 dark:text-gray-600">/</span>
-                            <span className="text-gray-700 dark:text-gray-200">{page}</span>
+                            <span className="text-gray-300 dark:text-gray-600 shrink-0">/</span>
+                            <span className="text-gray-700 dark:text-gray-200 text-base sm:text-lg truncate">{page}</span>
                         </>
                     )}
                 </div>
                 <div className="flex items-center gap-3">
-                    <ThemeToggle />
-                    {userName && <span className="text-sm text-gray-600 dark:text-gray-400">{userName}</span>}
+                    {userName && <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">{userName}</span>}
                     <button
                         onClick={handleLogout}
                         className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"

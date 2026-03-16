@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as path from 'path';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface BibleVerse {
   book: string;
@@ -15,15 +16,50 @@ const verses: BibleVerse[] = require(
 
 @Injectable()
 export class BibleService {
+  constructor(private prisma: PrismaService) {}
+
   getRandomVerse(): BibleVerse {
     const index = Math.floor(Math.random() * verses.length);
     return verses[index];
   }
 
-  getVerseOfDay(): BibleVerse {
-    const dayOfYear = this.getDayOfYear();
-    const index = dayOfYear % verses.length;
-    return verses[index];
+  async getVerseOfDay(userId: string): Promise<BibleVerse & { meditationId: string }> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const existing = await this.prisma.meditation.findFirst({
+      where: { userId, createdAt: { gte: todayStart } },
+    });
+
+    if (existing) {
+      return {
+        book: existing.book,
+        chapter: existing.chapter,
+        verse: existing.verse,
+        content: existing.content,
+        meditationId: existing.id,
+      };
+    }
+
+    const v = this.getRandomVerse();
+    const meditation = await this.prisma.meditation.create({
+      data: { userId, book: v.book, chapter: v.chapter, verse: v.verse, content: v.content },
+    });
+    return { ...v, meditationId: meditation.id };
+  }
+
+  async getMeditations(userId: string) {
+    return this.prisma.meditation.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateNote(userId: string, meditationId: string, note: string) {
+    return this.prisma.meditation.updateMany({
+      where: { id: meditationId, userId },
+      data: { note },
+    });
   }
 
   // "엡 2:21-22" 또는 "엡 2:21" 형태로 구절 조회
@@ -49,12 +85,5 @@ export class BibleService {
       results.push(...found);
     }
     return results;
-  }
-
-  private getDayOfYear(): number {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 0);
-    const diff = now.getTime() - start.getTime();
-    return Math.floor(diff / (1000 * 60 * 60 * 24));
   }
 }

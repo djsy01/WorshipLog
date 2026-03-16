@@ -18,15 +18,17 @@ export const metadata: Metadata = {
   description: "찬양팀을 위한 콘티 & 예배 기록 서비스",
 };
 
-// 페이지 렌더 전에 테마 클래스를 설정해 깜빡임(FOUC) 방지
+// 시스템 다크모드를 감지해 클래스 적용 (FOUC 방지 + 실시간 변경 반영)
 const themeScript = `
 (function(){
   try {
-    var t = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (t === 'dark' || (!t && prefersDark)) {
-      document.documentElement.classList.add('dark');
-    }
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.matches) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    mq.addEventListener('change', function(e){
+      if (e.matches) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    });
   } catch(e) {}
   // Fast Refresh 콘솔 로그 억제 (개발 환경)
   if (typeof console !== 'undefined') {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { teamsApi, Team, Conti, CommunityPost } from '@/lib/api';
@@ -32,6 +32,59 @@ export default function TeamPage() {
   const [chatInput, setChatInput] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // 팀 순서 (localStorage 저장)
+  const [teamOrder, setTeamOrder] = useState<string[]>([]);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const sortedTeamsRef = useRef<typeof teams>([]);
+  const touchDragRef = useRef<string | null>(null);
+
+  const sortedTeams = useMemo(() => {
+    const result = teamOrder.length === 0 ? teams : [...teams].sort((a, b) => {
+      const ai = teamOrder.indexOf(a.id);
+      const bi = teamOrder.indexOf(b.id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    sortedTeamsRef.current = result;
+    return result;
+  }, [teams, teamOrder]);
+
+  // 모바일 touch drag (passive: false 필요)
+  useEffect(() => {
+    const ul = listRef.current;
+    if (!ul) return;
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!touchDragRef.current) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const items = ul.querySelectorAll<HTMLElement>('[data-team-id]');
+      let targetId: string | null = null;
+      items.forEach((item) => {
+        const rect = item.getBoundingClientRect();
+        if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+          targetId = item.dataset.teamId ?? null;
+        }
+      });
+      if (targetId && targetId !== touchDragRef.current) {
+        const order = sortedTeamsRef.current.map((t) => t.id);
+        const fromIdx = order.indexOf(touchDragRef.current);
+        const toIdx = order.indexOf(targetId);
+        if (fromIdx !== -1 && toIdx !== -1) {
+          order.splice(fromIdx, 1);
+          order.splice(toIdx, 0, touchDragRef.current);
+          setTeamOrder([...order]);
+          setDragOverId(targetId);
+        }
+      }
+    };
+    ul.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => ul.removeEventListener('touchmove', handleTouchMove);
+  }, []);
 
   // 멤버 토글
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -72,7 +125,12 @@ export default function TeamPage() {
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (stored) setMyUserId((JSON.parse(stored) as { id: string }).id);
+    if (stored) {
+      const userId = (JSON.parse(stored) as { id: string }).id;
+      setMyUserId(userId);
+      const savedOrder = localStorage.getItem(`teamOrder_${userId}`);
+      if (savedOrder) setTeamOrder(JSON.parse(savedOrder));
+    }
     loadTeams();
   }, [loadTeams]);
 
@@ -202,6 +260,34 @@ export default function TeamPage() {
     }
   };
 
+  const moveTeam = (teamId: string, dir: -1 | 1) => {
+    const order = sortedTeams.map((t) => t.id);
+    const idx = order.indexOf(teamId);
+    const next = idx + dir;
+    if (next < 0 || next >= order.length) return;
+    [order[idx], order[next]] = [order[next], order[idx]];
+    setTeamOrder(order);
+    if (myUserId) localStorage.setItem(`teamOrder_${myUserId}`, JSON.stringify(order));
+  };
+
+  const handleDragStart = (teamId: string) => setDragId(teamId);
+  const handleDragOver = (e: React.DragEvent, teamId: string) => {
+    e.preventDefault();
+    setDragOverId(teamId);
+    if (dragId === null || dragId === teamId) return;
+    const currentOrder = sortedTeams.map((t) => t.id);
+    const fromIdx = currentOrder.indexOf(dragId);
+    const toIdx = currentOrder.indexOf(teamId);
+    currentOrder.splice(fromIdx, 1);
+    currentOrder.splice(toIdx, 0, dragId);
+    setTeamOrder(currentOrder);
+  };
+  const handleDragEnd = () => {
+    if (myUserId) localStorage.setItem(`teamOrder_${myUserId}`, JSON.stringify(sortedTeams.map((t) => t.id)));
+    setDragId(null);
+    setDragOverId(null);
+  };
+
   const handleLeave = async (teamId: string, teamName: string) => {
     if (!confirm(`"${teamName}" 팀에서 나가시겠습니까?`)) return;
     const token = getToken();
@@ -310,7 +396,7 @@ export default function TeamPage() {
         {/* 2단 레이아웃 */}
         <div className="grid grid-cols-10 gap-6">
           {/* ── 좌측: 내 스페이스 (3/10) ── */}
-          <aside className="col-span-10 md:col-span-3">
+          <aside className={`col-span-10 md:col-span-3 ${selectedTeamId ? 'hidden md:block' : ''}`}>
             <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
               <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                 <h2 className="font-bold text-gray-900 dark:text-white">내 스페이스</h2>
@@ -331,13 +417,25 @@ export default function TeamPage() {
                   </button>
                 </div>
               ) : (
-                <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {teams.map((team) => {
+                <ul ref={listRef} className="divide-y divide-gray-100 dark:divide-gray-800 pb-2">
+                  {sortedTeams.map((team) => {
                     const isLeader = team.createdBy === myUserId;
                     const isSelected = selectedTeamId === team.id;
                     const isExpanded = expandedTeams.has(team.id);
+                    const isDragging = dragId === team.id;
+                    const isDragOver = dragOverId === team.id && dragId !== team.id;
                     return (
-                      <li key={team.id}>
+                      <li
+                        key={team.id}
+                        data-team-id={team.id}
+                        draggable
+                        onDragStart={() => handleDragStart(team.id)}
+                        onDragOver={(e) => handleDragOver(e, team.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`relative transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'ring-1 ring-inset ring-violet-400 dark:ring-violet-500' : ''}`}
+                      >
+                        {/* 선택 인디케이터 */}
+                        {isSelected && <div className="absolute left-0 top-0 h-full w-0.5 bg-violet-500 rounded-r" />}
                         {/* 팀 선택 행 */}
                         <div
                           role="button"
@@ -351,6 +449,14 @@ export default function TeamPage() {
                           }`}
                         >
                           <div className="flex min-w-0 items-center gap-1.5">
+                            <span
+                              className="shrink-0 cursor-grab touch-none select-none text-gray-300 hover:text-gray-400 dark:text-gray-600 dark:hover:text-gray-500 active:cursor-grabbing"
+                              onClick={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => { e.stopPropagation(); touchDragRef.current = team.id; setDragId(team.id); }}
+                              onTouchEnd={(e) => { e.stopPropagation(); if (myUserId) localStorage.setItem(`teamOrder_${myUserId}`, JSON.stringify(sortedTeamsRef.current.map((t) => t.id))); touchDragRef.current = null; setDragId(null); setDragOverId(null); }}
+                            >
+                              ⠿
+                            </span>
                             {isSelected && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />}
                             <span className={`truncate font-bold ${isSelected ? 'text-violet-700 dark:text-violet-400' : 'text-gray-900 dark:text-white'}`}>
                               {team.name}
@@ -370,9 +476,6 @@ export default function TeamPage() {
                             {isExpanded ? '▲' : '▼'}
                           </button>
                         </div>
-                        {team.description && !isExpanded && (
-                          <p className="px-5 pb-3 -mt-2 truncate text-xs text-gray-400">{team.description}</p>
-                        )}
 
                         {/* 멤버 확장 영역 */}
                         {isExpanded && (
@@ -446,7 +549,7 @@ export default function TeamPage() {
           </aside>
 
           {/* ── 우측: 선택된 팀 콘텐츠 (7/10) ── */}
-          <section className="col-span-10 md:col-span-7">
+          <section className={`col-span-10 md:col-span-7 ${!selectedTeamId ? 'hidden md:block' : ''}`}>
             {!selectedTeam ? (
               <div className="flex h-64 flex-col items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                 <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20">
@@ -461,13 +564,27 @@ export default function TeamPage() {
               <div className="flex h-150 flex-col rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                 {/* 팀 헤더 */}
                 <div className="border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+                  {/* 모바일 뒤로가기 */}
+                  <button
+                    className="mb-2 flex items-center gap-1 text-xs text-violet-500 hover:text-violet-700 md:hidden"
+                    onClick={() => setSelectedTeamId(null)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                      <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/>
+                    </svg>
+                    팀 목록
+                  </button>
                   <div className="flex items-center gap-2">
                     <div className="h-8 w-8 shrink-0 rounded-full bg-violet-500 text-center text-sm font-bold leading-8 text-white">
                       {selectedTeam.name[0]}
                     </div>
                     <div>
                       <p className="font-bold text-gray-900 dark:text-white">{selectedTeam.name}</p>
-                      <p className="text-xs text-gray-400">멤버 {selectedTeam.members.length}명</p>
+                      <p className="text-xs text-gray-400">
+                        멤버 {selectedTeam.members.length}명
+                        {selectedTeam.description && <span className="ml-2 text-gray-300 dark:text-gray-600">·</span>}
+                        {selectedTeam.description && <span className="ml-2">{selectedTeam.description}</span>}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -538,7 +655,7 @@ export default function TeamPage() {
                                   )}
                                   <div className={`flex items-end gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
                                     <div
-                                      className={`group relative rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                                      className={`group relative rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
                                         isMine
                                           ? 'rounded-br-sm bg-violet-500 text-white'
                                           : 'rounded-bl-sm bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'

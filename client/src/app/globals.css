@@ -3,6 +3,19 @@
 /* class 기반 다크모드 — <html class="dark"> 일 때 dark: 클래스 활성화 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face {
+  font-family: 'Gabia Solmee';
+  src: url('/font/GabiaSolmee.woff2') format('woff2'),
+       url('/font/GabiaSolmee.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-lovespring {
+  font-family: 'Gabia Solmee', serif;
+}
+
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
