@@ -116,7 +116,7 @@ function SongsContent() {
 
   const handleCreate = async () => {
     const token = getToken();
-    if (!token || !form.title.trim()) return;
+    if (!token || !form.title.trim() || !form.artist.trim()) return;
     setSaving(true);
     try {
       await songsApi.create(token, {
@@ -163,7 +163,7 @@ function SongsContent() {
   const handleUpdate = async () => {
     if (!editingSong) return;
     const token = getToken();
-    if (!token || !form.title.trim()) return;
+    if (!token || !form.title.trim() || !form.artist.trim()) return;
     setSaving(true);
     try {
       await songsApi.update(token, editingSong.id, {
@@ -448,7 +448,7 @@ function SongsContent() {
               />
               <input
                 type="text"
-                placeholder="아티스트 / 찬양팀"
+                placeholder="아티스트 / 찬양팀 *"
                 value={form.artist}
                 onChange={(e) => setForm((f) => ({ ...f, artist: e.target.value }))}
                 className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-violet-500"
@@ -537,7 +537,7 @@ function SongsContent() {
               </button>
               <button
                 onClick={editingSong ? handleUpdate : handleCreate}
-                disabled={!form.title.trim() || saving}
+                disabled={!form.title.trim() || !form.artist.trim() || saving}
                 className="flex-1 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50"
               >
                 {saving ? '저장 중...' : editingSong ? '수정하기' : '추가하기'}

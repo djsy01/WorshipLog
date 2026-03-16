@@ -78,7 +78,6 @@ export class TeamsService {
   async joinByToken(userId: string, token: string) {
     const invite = await this.prisma.teamInvite.findUnique({ where: { token } });
     if (!invite) throw new NotFoundException('유효하지 않은 초대 링크입니다.');
-    if (invite.usedAt) throw new BadRequestException('이미 사용된 초대 링크입니다.');
     if (invite.expiresAt < new Date()) throw new BadRequestException('만료된 초대 링크입니다.');
 
     const existing = await this.prisma.teamMember.findUnique({
@@ -86,15 +85,9 @@ export class TeamsService {
     });
     if (existing) throw new ConflictException('이미 팀 멤버입니다.');
 
-    await this.prisma.$transaction([
-      this.prisma.teamMember.create({
-        data: { teamId: invite.teamId, userId, role: 'member' },
-      }),
-      this.prisma.teamInvite.update({
-        where: { id: invite.id },
-        data: { usedAt: new Date() },
-      }),
-    ]);
+    await this.prisma.teamMember.create({
+      data: { teamId: invite.teamId, userId, role: 'member' },
+    });
 
     return this.prisma.team.findUnique({
       where: { id: invite.teamId },

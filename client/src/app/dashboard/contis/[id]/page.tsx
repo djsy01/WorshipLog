@@ -564,13 +564,15 @@ export default function ContiEditPage() {
             <div className="print:hidden flex shrink-0 gap-2">
               <button
                 onClick={handleShareLink}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
+                disabled={conti.songs.length === 0}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 {copied ? '복사됨!' : '공유하기'}
               </button>
               <button
                 onClick={handlePrint}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
+                disabled={conti.songs.length === 0}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 PDF 저장
               </button>
@@ -579,7 +581,7 @@ export default function ContiEditPage() {
               </button>
             </div>
           </div>
-          <p className="sm:hidden print:hidden mb-3 text-[11px] text-gray-400">💡 PDF 저장 시 크기 조절을 80%로 설정하세요</p>
+          <p className="sm:hidden print:hidden mb-3 text-[11px] text-gray-400">💡 PDF 저장 시 크기 조절을 79%로 설정하세요</p>
 
           {conti.songs.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center dark:border-gray-700">

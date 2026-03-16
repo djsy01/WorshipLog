@@ -59,15 +59,23 @@ export default function DashboardPage() {
         </header>
 
         {/* 오늘의 말씀 - 풀 너비 */}
-        {verse && (
-          <div className="mb-10 rounded-2xl bg-violet-100 px-8 py-6 dark:bg-violet-700/20">
-            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-violet-800 dark:text-violet-500">오늘의 말씀</p>
-            <p className="font-lovespring text-lg text-gray-800 dark:text-gray-200">{verse.content}</p>
-            <p className="mt-2 text-sm font-medium text-violet-600 dark:text-violet-400">
-              {verse.book} {verse.chapter}:{verse.verse}
-            </p>
-          </div>
-        )}
+        <div className="mb-10 rounded-2xl bg-violet-100 px-8 py-6 dark:bg-violet-700/20 min-h-27">
+          {verse ? (
+            <>
+              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-violet-800 dark:text-violet-500">오늘의 말씀</p>
+              <p className="font-lovespring text-lg text-gray-800 dark:text-gray-200">{verse.content}</p>
+              <p className="mt-2 text-sm font-medium text-violet-600 dark:text-violet-400">
+                {verse.book} {verse.chapter}:{verse.verse}
+              </p>
+            </>
+          ) : (
+            <div className="animate-pulse space-y-2">
+              <div className="h-3 w-20 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-5 w-3/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-4 w-1/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+            </div>
+          )}
+        </div>
 
         {/* 좌우 레이아웃 */}
         <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
