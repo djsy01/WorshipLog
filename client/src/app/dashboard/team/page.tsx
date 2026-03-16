@@ -40,6 +40,7 @@ export default function TeamPage() {
   const listRef = useRef<HTMLUListElement>(null);
   const sortedTeamsRef = useRef<typeof teams>([]);
   const touchDragRef = useRef<string | null>(null);
+  const dragOrderRef = useRef<string[]>([]);
 
   const sortedTeams = useMemo(() => {
     const result = teamOrder.length === 0 ? teams : [...teams].sort((a, b) => {
@@ -54,36 +55,30 @@ export default function TeamPage() {
     return result;
   }, [teams, teamOrder]);
 
-  // 모바일 touch drag (passive: false 필요)
+  // 모바일 touch drag — document 레벨 + elementFromPoint (passive: false 필요)
   useEffect(() => {
-    const ul = listRef.current;
-    if (!ul) return;
     const handleTouchMove = (e: TouchEvent) => {
       if (!touchDragRef.current) return;
       e.preventDefault();
       const touch = e.touches[0];
-      const items = ul.querySelectorAll<HTMLElement>('[data-team-id]');
-      let targetId: string | null = null;
-      items.forEach((item) => {
-        const rect = item.getBoundingClientRect();
-        if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-          targetId = item.dataset.teamId ?? null;
-        }
-      });
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const li = el?.closest('[data-team-id]') as HTMLElement | null;
+      const targetId = li?.dataset.teamId ?? null;
       if (targetId && targetId !== touchDragRef.current) {
-        const order = sortedTeamsRef.current.map((t) => t.id);
+        const order = [...dragOrderRef.current];
         const fromIdx = order.indexOf(touchDragRef.current);
         const toIdx = order.indexOf(targetId);
         if (fromIdx !== -1 && toIdx !== -1) {
           order.splice(fromIdx, 1);
           order.splice(toIdx, 0, touchDragRef.current);
+          dragOrderRef.current = order;
           setTeamOrder([...order]);
           setDragOverId(targetId);
         }
       }
     };
-    ul.addEventListener('touchmove', handleTouchMove, { passive: false });
-    return () => ul.removeEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => document.removeEventListener('touchmove', handleTouchMove);
   }, []);
 
   // 멤버 토글
@@ -452,7 +447,7 @@ export default function TeamPage() {
                             <span
                               className="shrink-0 cursor-grab touch-none select-none text-gray-300 hover:text-gray-400 dark:text-gray-600 dark:hover:text-gray-500 active:cursor-grabbing"
                               onClick={(e) => e.stopPropagation()}
-                              onTouchStart={(e) => { e.stopPropagation(); touchDragRef.current = team.id; setDragId(team.id); }}
+                              onTouchStart={(e) => { e.stopPropagation(); touchDragRef.current = team.id; dragOrderRef.current = sortedTeamsRef.current.map((t) => t.id); setDragId(team.id); }}
                               onTouchEnd={(e) => { e.stopPropagation(); if (myUserId) localStorage.setItem(`teamOrder_${myUserId}`, JSON.stringify(sortedTeamsRef.current.map((t) => t.id))); touchDragRef.current = null; setDragId(null); setDragOverId(null); }}
                             >
                               ⠿

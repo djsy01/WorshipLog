@@ -130,6 +130,7 @@ model ContiSong {
   contiId    String  @map("conti_id")
   songId     String  @map("song_id")
   key        String?
+  tempo      Int?
   orderIndex Int     @default(0) @map("order_index")
   note       String?
 
