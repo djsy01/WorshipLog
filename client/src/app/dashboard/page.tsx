@@ -59,7 +59,7 @@ export default function DashboardPage() {
         </header>
 
         {/* 오늘의 말씀 - 풀 너비 */}
-        <div className="mb-10 rounded-2xl bg-violet-100 px-8 py-6 dark:bg-violet-700/20 min-h-27">
+        <div className="mb-10 rounded-2xl bg-violet-100 px-8 py-6 dark:bg-violet-700/20">
           {verse ? (
             <>
               <p className="mb-2 text-xs font-bold uppercase tracking-widest text-violet-800 dark:text-violet-500">오늘의 말씀</p>
@@ -71,8 +71,8 @@ export default function DashboardPage() {
           ) : (
             <div className="animate-pulse space-y-2">
               <div className="h-3 w-20 rounded bg-violet-200 dark:bg-violet-700/40" />
-              <div className="h-5 w-3/4 rounded bg-violet-200 dark:bg-violet-700/40" />
-              <div className="h-4 w-1/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-7 w-3/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-5 w-1/4 rounded bg-violet-200 dark:bg-violet-700/40" />
             </div>
           )}
         </div>

@@ -226,15 +226,15 @@ function SongsContent() {
         </button>
 
         {/* 오늘의 말씀 카드 */}
-        {verse && (
-          <div className="mb-6 rounded-xl bg-violet-50 p-5 dark:bg-violet-900/20">
+        <div className="mb-6 rounded-2xl bg-violet-100 px-8 py-6 dark:bg-violet-700/20">
+          {verse ? (
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-400 dark:text-violet-500">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-violet-800 dark:text-violet-500">
                   오늘의 말씀
                 </p>
-                <p className="font-lovespring text-sm leading-relaxed text-gray-800 dark:text-gray-200">{verse.content}</p>
-                <p className="mt-1.5 text-xs font-medium text-violet-500 dark:text-violet-400">
+                <p className="font-lovespring text-lg text-gray-800 dark:text-gray-200">{verse.content}</p>
+                <p className="mt-2 text-sm font-medium text-violet-600 dark:text-violet-400">
                   {formatRef(verse)}
                 </p>
               </div>
@@ -245,8 +245,14 @@ function SongsContent() {
                 이 말씀으로<br />찬양 찾기
               </button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="animate-pulse space-y-2">
+              <div className="h-3 w-20 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-7 w-3/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-5 w-1/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+            </div>
+          )}
+        </div>
 
         {/* 페이지 타이틀 */}
         <div className="mb-4">
