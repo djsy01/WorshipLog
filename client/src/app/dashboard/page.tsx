@@ -29,23 +29,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (!stored) {
-      router.replace('/login');
-      return;
-    }
-    setUser(JSON.parse(stored) as User);
     const token = localStorage.getItem('accessToken') ?? '';
-    bibleApi
-      .today(token)
-      .then(setVerse)
-      .catch(() => null);
-    contisApi
-      .list(token)
-      .then((data) => setRecentContis(data.slice(0, 3)))
-      .catch(() => null);
+    if (stored) {
+      setUser(JSON.parse(stored) as User);
+      bibleApi.today(token).then(setVerse).catch(() => null);
+      contisApi.list(token).then((data) => setRecentContis(data.slice(0, 3))).catch(() => null);
+    } else {
+      bibleApi.publicRandom().then(setVerse).catch(() => null);
+    }
   }, [router]);
-
-  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -54,7 +46,9 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-5xl px-6 py-10">
         {/* 타이틀 */}
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">안녕하세요, {user.name}님 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {user ? `안녕하세요, ${user.name}님 👋` : '안녕하세요!'}
+          </h1>
           <p className="text-gray-500 dark:text-gray-400">오늘도 찬양으로 하나님께 영광을 돌리세요.</p>
         </header>
 

@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { contisApi, Conti } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function ContisPage() {
     const router = useRouter();
     const [contis, setContis] = useState<Conti[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [showLoginModal, setShowLoginModal] = useState(false);
 
     // 생성 모달
     const [showModal, setShowModal] = useState(false);
@@ -18,13 +20,8 @@ export default function ContisPage() {
     const [saving, setSaving] = useState(false);
 
     const getToken = useCallback(() => {
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-            router.replace('/login');
-            return null;
-        }
-        return token;
-    }, [router]);
+        return localStorage.getItem('accessToken');
+    }, []);
 
     const loadContis = useCallback(async () => {
         const token = getToken();
@@ -40,6 +37,11 @@ export default function ContisPage() {
     }, [getToken]);
 
     useEffect(() => {
+        if (!localStorage.getItem('user')) {
+            setShowLoginModal(true);
+            setLoading(false);
+            return;
+        }
         loadContis();
     }, [loadContis]);
 
@@ -80,6 +82,17 @@ export default function ContisPage() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             <AppHeader page="콘티" />
+
+            {showLoginModal && (
+                <ConfirmModal
+                    title="로그인이 필요합니다"
+                    message="콘티 기능을 이용하려면 로그인이 필요합니다."
+                    confirmText="로그인"
+                    cancelText="돌아가기"
+                    onConfirm={() => router.push('/login')}
+                    onCancel={() => router.push('/dashboard')}
+                />
+            )}
 
             <main className="mx-auto max-w-5xl px-6 py-8">
                 <button

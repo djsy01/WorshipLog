@@ -154,14 +154,14 @@ export class TeamsService {
     });
   }
 
-  async createPost(userId: string, teamId: string, dto: { content: string }) {
+  async createPost(userId: string, teamId: string, dto: { content: string; fileUrl?: string }) {
     const member = await this.prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },
     });
     if (!member) throw new ForbiddenException('팀 멤버가 아닙니다.');
 
     return this.prisma.communityPost.create({
-      data: { teamId, userId, content: dto.content },
+      data: { teamId, userId, content: dto.content, fileUrl: dto.fileUrl ?? null },
       include: { user: { select: { id: true, name: true } } },
     });
   }

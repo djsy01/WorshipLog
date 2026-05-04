@@ -85,7 +85,7 @@ export class TeamsController {
   createPost(
     @CurrentUser('sub') userId: string,
     @Param('id') teamId: string,
-    @Body() dto: { content: string },
+    @Body() dto: { content: string; fileUrl?: string },
   ) {
     return this.teamsService.createPost(userId, teamId, dto);
   }

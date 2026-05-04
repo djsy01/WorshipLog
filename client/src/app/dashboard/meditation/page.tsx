@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { bibleApi, communityApi, teamsApi, Meditation, Team } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
+import ConfirmModal from '@/components/ConfirmModal';
 
 function formatRef(m: Meditation) {
   return `${m.book} ${m.chapter}:${m.verse}`;
@@ -83,10 +84,11 @@ export default function MeditationPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken') ?? '';
-    if (!localStorage.getItem('user')) { router.replace('/login'); return; }
+    if (!localStorage.getItem('user')) { setShowLoginModal(true); return; }
     bibleApi.getMeditations(token).then((data) => {
       // 최신순 정렬
       const sorted = [...data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -151,6 +153,17 @@ export default function MeditationPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <AppHeader />
+
+      {showLoginModal && (
+        <ConfirmModal
+          title="로그인이 필요합니다"
+          message="말씀묵상 기능을 이용하려면 로그인이 필요합니다."
+          confirmText="로그인"
+          cancelText="돌아가기"
+          onConfirm={() => router.push('/login')}
+          onCancel={() => router.push('/dashboard')}
+        />
+      )}
 
       {/* 모바일 드로어 */}
       {sidebarOpen && (

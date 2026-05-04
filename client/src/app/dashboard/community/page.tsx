@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { communityApi, Post, PostComment } from '@/lib/api';
+import { communityApi, uploadApi, Post, PostComment } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 
 type View = 'list' | 'write' | 'detail';
@@ -70,18 +70,19 @@ function stripTags(t: string) {
 // ─── 댓글 ─────────────────────────────────────────────────────────────────────
 function Comments({ post, token }: { post: Post; token: string }) {
   const [comments, setComments] = useState<PostComment[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [anon, setAnon] = useState(true);
 
-  async function load() {
-    const data = await communityApi.getComments(token, post.id);
-    setComments(data);
-    setLoaded(true);
-  }
+  useEffect(() => {
+    communityApi.getComments(token, post.id)
+      .then(setComments)
+      .catch(() => null)
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submit() {
-    if (!input.trim()) return;
+    if (!input.trim() || !token) return;
     const c = await communityApi.createComment(token, post.id, {
       content: stripTags(input.trim()),
       isAnonymous: anon,
@@ -95,51 +96,49 @@ function Comments({ post, token }: { post: Post; token: string }) {
     setComments((prev) => prev.filter((c) => c.id !== commentId));
   }
 
-  if (!loaded) {
-    return (
-      <button onClick={load} className="mt-3 text-xs text-violet-500 hover:underline">
-        댓글 {post._count.comments}개 보기
-      </button>
-    );
-  }
-
   return (
     <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
       <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3">댓글 {comments.length}</p>
-      <div className="flex flex-col gap-2 mb-3">
-        {comments.map((c) => (
-          <div key={c.id} className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 mr-1.5">{c.author}</span>
-              <span className="text-sm text-gray-800 dark:text-gray-200">{c.content}</span>
-              <span className="ml-2 text-xs text-gray-400">{timeAgo(c.createdAt)}</span>
+      {loading ? (
+        <div className="text-xs text-gray-400 mb-3">불러오는 중...</div>
+      ) : (
+        <div className="flex flex-col gap-2 mb-3">
+          {comments.map((c) => (
+            <div key={c.id} className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 mr-1.5">{c.author}</span>
+                <span className="text-sm text-gray-800 dark:text-gray-200">{c.content}</span>
+                <span className="ml-2 text-xs text-gray-400">{timeAgo(c.createdAt)}</span>
+              </div>
+              {c.isMine && (
+                <button onClick={() => remove(c.id)} className="shrink-0 text-xs text-red-400 hover:text-red-600">삭제</button>
+              )}
             </div>
-            {c.isMine && (
-              <button onClick={() => remove(c.id)} className="shrink-0 text-xs text-red-400 hover:text-red-600">삭제</button>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2 items-center">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && submit()}
-          placeholder="댓글 작성..."
-          className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
-          autoComplete="off"
-        />
-        <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
-          <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded" />
-          익명
-        </label>
-        <button
-          onClick={submit}
-          className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-xs text-white hover:bg-violet-700 transition"
-        >
-          등록
-        </button>
-      </div>
+          ))}
+        </div>
+      )}
+      {token && (
+        <div className="flex gap-2 items-center">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && submit()}
+            placeholder="댓글 작성..."
+            className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            autoComplete="off"
+          />
+          <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
+            <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded" />
+            익명
+          </label>
+          <button
+            onClick={submit}
+            className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-xs text-white hover:bg-violet-700 transition"
+          >
+            등록
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -204,7 +203,7 @@ function SidebarContent({
 
 // ─── 글쓰기 폼 ────────────────────────────────────────────────────────────────
 function WriteForm({
-  category,
+  category: initialCategory,
   token,
   onSubmit,
   onCancel,
@@ -216,24 +215,56 @@ function WriteForm({
 }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [category, setCategory] = useState(initialCategory);
   const [anon, setAnon] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setFile(f);
+    if (f && f.type.startsWith('image/')) {
+      setFilePreview(URL.createObjectURL(f));
+    } else {
+      setFilePreview(null);
+    }
+  }
+
+  function removeFile() {
+    setFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
 
   async function submit() {
     if (!title.trim() || !content.trim()) return;
     setSubmitting(true);
     try {
+      let fileUrl: string | undefined;
+      if (file) {
+        setUploading(true);
+        const res = await uploadApi.upload(token, file);
+        fileUrl = res.url;
+        setUploading(false);
+      }
       const post = await communityApi.create(token, {
         title: stripTags(title.trim()),
         category,
         content: stripTags(content.trim()),
+        fileUrl,
         isAnonymous: anon,
       });
       onSubmit(post);
     } finally {
       setSubmitting(false);
+      setUploading(false);
     }
   }
+
+  const allCategories = SECTIONS.flatMap((s) => s.categories);
 
   return (
     <div className="max-w-2xl">
@@ -246,12 +277,23 @@ function WriteForm({
             <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0" />
           </svg>
         </button>
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-          글쓰기 — <span className="text-violet-600">{getCategoryLabel(category)}</span>
-        </h2>
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">글쓰기</h2>
       </div>
 
       <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 overflow-hidden">
+        {/* 카테고리 선택 */}
+        <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            {allCategories.map((c) => (
+              <option key={c.key} value={c.key}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -268,11 +310,59 @@ function WriteForm({
           rows={10}
           autoComplete="off"
         />
+
+        {/* 파일 첨부 미리보기 */}
+        {file && (
+          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              {filePreview ? (
+                <img src={filePreview} alt="미리보기" className="h-20 w-20 rounded-lg object-cover" />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-violet-500">
+                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1L14 4.5z"/>
+                  </svg>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{file.name}</p>
+                <p className="text-xs text-gray-400">{(file.size / 1024).toFixed(0)} KB</p>
+              </div>
+              <button onClick={removeFile} className="shrink-0 text-gray-400 hover:text-red-500 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-          <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
-            <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded" />
-            익명으로 게시
-          </label>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+              <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded" />
+              익명으로 게시
+            </label>
+            {/* 파일 첨부 버튼 */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"/>
+                <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2M14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1M2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1z"/>
+              </svg>
+              파일 첨부
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onCancel}
@@ -285,7 +375,7 @@ function WriteForm({
               disabled={!title.trim() || !content.trim() || submitting}
               className="rounded-lg bg-violet-600 px-5 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-40 transition"
             >
-              {submitting ? '등록 중...' : '등록'}
+              {uploading ? '업로드 중...' : submitting ? '등록 중...' : '등록'}
             </button>
           </div>
         </div>
@@ -354,6 +444,25 @@ function PostDetail({
 
         <div className="border-t border-gray-100 dark:border-gray-800 pt-5">
           <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{post.content}</p>
+          {post.fileUrl && (
+            <div className="mt-4">
+              {/\.(jpg|jpeg|png|gif|webp)$/i.test(post.fileUrl) ? (
+                <img src={post.fileUrl} alt="첨부 이미지" className="max-w-full rounded-xl border border-gray-100 dark:border-gray-800" />
+              ) : (
+                <a
+                  href={post.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-violet-200 dark:border-violet-800 px-4 py-2 text-sm text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M4 0h5.293A1 1 0 0 1 10 .293L13.707 4a1 1 0 0 1 .293.707V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2m5.5 1.5v2a1 1 0 0 0 1 1h2z"/>
+                  </svg>
+                  첨부파일 보기
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         <Comments post={post} token={token} />
@@ -455,6 +564,7 @@ function PostList({
 export default function CommunityPage() {
   const router = useRouter();
   const [category, setCategory] = useState('free');
+  const [reloadTrigger, setReloadTrigger] = useState(0);
   const [view, setView] = useState<View>('list');
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -468,10 +578,6 @@ export default function CommunityPage() {
   function getToken() {
     return localStorage.getItem('accessToken') ?? '';
   }
-
-  useEffect(() => {
-    if (!localStorage.getItem('user')) router.replace('/login');
-  }, [router]);
 
   const loadPosts = useCallback(
     async (reset = false) => {
@@ -501,7 +607,6 @@ export default function CommunityPage() {
     setCursor(undefined);
     setView('list');
     setSelectedPost(null);
-    // reset 후 로드
     setLoading(true);
     communityApi.list(getToken(), category).then((data) => {
       if (data.length < 20) setHasMore(false);
@@ -509,10 +614,11 @@ export default function CommunityPage() {
       setCursor(data.length > 0 ? data[data.length - 1].id : undefined);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [category]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [category, reloadTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSelectCategory(key: string) {
     setCategory(key);
+    setReloadTrigger((t) => t + 1);
     setSidebarOpen(false);
   }
 

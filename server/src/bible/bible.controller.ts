@@ -3,7 +3,6 @@ import { BibleService } from './bible.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
-@UseGuards(JwtAuthGuard)
 @Controller('bible')
 export class BibleController {
   constructor(private bibleService: BibleService) {}
@@ -13,16 +12,19 @@ export class BibleController {
     return this.bibleService.getRandomVerse();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('today')
   getToday(@CurrentUser('sub') userId: string) {
     return this.bibleService.getVerseOfDay(userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('meditations')
   getMeditations(@CurrentUser('sub') userId: string) {
     return this.bibleService.getMeditations(userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch('meditations/:id')
   updateNote(
     @CurrentUser('sub') userId: string,
@@ -32,6 +34,7 @@ export class BibleController {
     return this.bibleService.updateNote(userId, id, dto.note);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('search')
   searchByRef(@Query('ref') ref: string) {
     if (!ref) return [];

@@ -5,12 +5,13 @@ import { PrismaService } from '../prisma/prisma.service';
 export class PostsService {
   constructor(private prisma: PrismaService) {}
 
-  private formatAuthor(userId: string, name: string, isAnonymous: boolean, requesterId: string) {
-    if (!isAnonymous || userId === requesterId) return name;
+  private formatAuthor(userId: string, name: string, isAnonymous: boolean, requesterId: string | undefined) {
+    if (!isAnonymous) return name;
+    if (requesterId && userId === requesterId) return name;
     return '익명';
   }
 
-  async list(requesterId: string, category?: string, cursor?: string, take = 20) {
+  async list(requesterId: string | undefined, category?: string, cursor?: string, take = 20) {
     const posts = await this.prisma.post.findMany({
       take,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
@@ -33,7 +34,7 @@ export class PostsService {
 
   async create(
     userId: string,
-    dto: { title?: string; category?: string; content: string; isAnonymous?: boolean; meditationId?: string },
+    dto: { title?: string; category?: string; content: string; fileUrl?: string; isAnonymous?: boolean; meditationId?: string },
   ) {
     const post = await this.prisma.post.create({
       data: {
@@ -41,6 +42,7 @@ export class PostsService {
         title: dto.title ?? null,
         category: dto.category ?? 'free',
         content: dto.content,
+        fileUrl: dto.fileUrl ?? null,
         isAnonymous: dto.isAnonymous ?? true,
         meditationId: dto.meditationId ?? null,
       },
@@ -67,7 +69,7 @@ export class PostsService {
     return { message: '삭제되었습니다.' };
   }
 
-  async getComments(requesterId: string, postId: string) {
+  async getComments(requesterId: string | undefined, postId: string) {
     const comments = await this.prisma.comment.findMany({
       where: { postId },
       orderBy: { createdAt: 'asc' },

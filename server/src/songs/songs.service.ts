@@ -52,18 +52,16 @@ export class SongsService {
     });
   }
 
-  async findAll(userId: string, search?: string) {
+  async findAll(userId: string | undefined, search?: string) {
+    const where = userId
+      ? { OR: [{ createdBy: userId }, { isPublic: true }] }
+      : { isPublic: true as const };
+
     if (!search) {
-      return this.prisma.song.findMany({
-        where: { OR: [{ createdBy: userId }, { isPublic: true }] },
-        orderBy: { createdAt: 'desc' },
-      });
+      return this.prisma.song.findMany({ where, orderBy: { createdAt: 'desc' } });
     }
 
-    const songs = await this.prisma.song.findMany({
-      where: { OR: [{ createdBy: userId }, { isPublic: true }] },
-      orderBy: { createdAt: 'desc' },
-    });
+    const songs = await this.prisma.song.findMany({ where, orderBy: { createdAt: 'desc' } });
 
     const q = search.toLowerCase();
     return songs.filter(
