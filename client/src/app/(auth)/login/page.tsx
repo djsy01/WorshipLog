@@ -55,7 +55,7 @@ function LoginContent() {
     return (
         <div className="w-full max-w-sm">
             <div className="mb-8 text-center">
-                <svg viewBox="0 0 100 100" className="mx-auto mb-4 w-30 h-30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg viewBox="0 0 100 100" className="mx-auto mb-4 w-30 h-30 cursor-pointer" fill="none" xmlns="http://www.w3.org/2000/svg" onClick={() => router.push('/dashboard')}>
                     <defs>
                         <linearGradient id="prismGradLogin" x1="0%" y1="0%" x2="100%" y2="100%">
                             <stop offset="0%" stopColor="#4F46E5" />
@@ -75,7 +75,7 @@ function LoginContent() {
                     <rect x="25" y="82" width="50" height="3" rx="1.5" fill="#CBD5E1" />
                     <rect x="35" y="90" width="30" height="3" rx="1.5" fill="#E2E8F0" />
                 </svg>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">WorshipLog</h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white cursor-pointer" onClick={() => router.push('/dashboard')}>WorshipLog</h1>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">찬양팀을 위한 콘티 & 예배 기록</p>
             </div>
 

@@ -48,7 +48,7 @@ export default function ContiEditPage() {
   // 악보 업로드
   const [uploadingSheetId, setUploadingSheetId] = useState<string | null>(null);
   const sheetInputRef = useRef<HTMLInputElement>(null);
-  const sheetTargetSongId = useRef<string | null>(null);
+  const sheetTargetContiSongId = useRef<string | null>(null);
 
   // 악보 inline 뷰어
   const [expandedSheetId, setExpandedSheetId] = useState<string | null>(null);
@@ -243,28 +243,28 @@ export default function ContiEditPage() {
 
   const handleSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    const songId = sheetTargetSongId.current;
-    if (!file || !songId) return;
+    const contiSongId = sheetTargetContiSongId.current;
+    if (!file || !contiSongId) return;
     const token = getToken();
     if (!token) return;
-    setUploadingSheetId(songId);
+    setUploadingSheetId(contiSongId);
     try {
-      await songsApi.uploadSheet(token, songId, file);
+      await contisApi.uploadContiSheet(token, contiId, contiSongId, file);
       await loadConti();
     } catch (err) {
       setError(err instanceof Error ? err.message : '업로드 실패');
     } finally {
       setUploadingSheetId(null);
-      sheetTargetSongId.current = null;
+      sheetTargetContiSongId.current = null;
       if (sheetInputRef.current) sheetInputRef.current.value = '';
     }
   };
 
-  const handleSheetDelete = async (songId: string) => {
+  const handleSheetDelete = async (contiSongId: string) => {
     const token = getToken();
     if (!token) return;
     try {
-      await songsApi.deleteSheet(token, songId);
+      await contisApi.deleteContiSheet(token, contiId, contiSongId);
       await loadConti();
     } catch (err) {
       setError(err instanceof Error ? err.message : '삭제 실패');
@@ -331,7 +331,8 @@ export default function ContiEditPage() {
       {/* 프린트 전용 레이아웃 */}
       <div className="hidden print:block print-content" style={{ fontFamily: 'Arial, sans-serif', color: '#111' }}>
         {conti.songs.map((cs, index) => {
-          const isPdf = cs.song.sheetMusicUrl?.toLowerCase().includes('.pdf');
+          const printSheetUrl = cs.sheetMusicUrl;
+          const isPdf = printSheetUrl?.toLowerCase().includes('.pdf');
           const colCount = cs.song.artist ? 5 : 4;
           return (
             <div key={cs.id} style={{ pageBreakBefore: index === 0 ? 'auto' : 'always', padding: '8px 24px 16px' }}>
@@ -393,10 +394,10 @@ export default function ContiEditPage() {
                   </tbody>
                 </table>
               )}
-              {cs.song.sheetMusicUrl &&
+              {printSheetUrl &&
                 (isPdf ? (
                   <PdfSheetViewer
-                    url={cs.song.sheetMusicUrl}
+                    url={printSheetUrl}
                     songHeader={{
                       num: index + 1,
                       title: cs.song.title,
@@ -414,7 +415,7 @@ export default function ContiEditPage() {
                   />
                 ) : (
                   <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 악보`} style={{ maxWidth: '920px', width: '100%' }} />
+                    <img src={printSheetUrl ?? undefined} alt={`${cs.song.title} 악보`} style={{ maxWidth: '920px', width: '100%' }} />
                   </div>
                 ))}
             </div>
@@ -593,7 +594,8 @@ export default function ContiEditPage() {
           ) : (
             <div className="space-y-2">
               {conti.songs.map((cs, index) => {
-                const isPdf = cs.song.sheetMusicUrl?.toLowerCase().includes('.pdf');
+                const activeSheetUrl = cs.sheetMusicUrl;
+                const isPdf = activeSheetUrl?.toLowerCase().includes('.pdf');
                 const sheetOpen = expandedSheetId === cs.id;
                 return (
                   <div key={cs.id} className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
@@ -616,23 +618,43 @@ export default function ContiEditPage() {
                               {cs.tempo ?? cs.song.tempo} BPM
                             </span>
                           )}
-                          {cs.song.sheetMusicUrl ? (
-                            <button
-                              onClick={() => setExpandedSheetId(sheetOpen ? null : cs.id)}
-                              className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
-                            >
-                              {sheetOpen ? '악보 닫기' : '악보 보기'}
-                            </button>
+                          {activeSheetUrl ? (
+                            <>
+                              <button
+                                onClick={() => setExpandedSheetId(sheetOpen ? null : cs.id)}
+                                className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
+                              >
+                                {sheetOpen ? '악보 닫기' : '악보 보기'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  sheetTargetContiSongId.current = cs.id;
+                                  sheetInputRef.current?.click();
+                                }}
+                                disabled={uploadingSheetId === cs.id}
+                                className="print:hidden rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-500 hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-900/20 dark:text-blue-400"
+                              >
+                                {uploadingSheetId === cs.id ? '...' : '악보 교체'}
+                              </button>
+                              {cs.sheetMusicUrl && (
+                                <button
+                                  onClick={() => handleSheetDelete(cs.id)}
+                                  className="print:hidden rounded bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-400 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400"
+                                >
+                                  삭제
+                                </button>
+                              )}
+                            </>
                           ) : (
                             <button
                               onClick={() => {
-                                sheetTargetSongId.current = cs.song.id;
+                                sheetTargetContiSongId.current = cs.id;
                                 sheetInputRef.current?.click();
                               }}
-                              disabled={uploadingSheetId === cs.song.id}
+                              disabled={uploadingSheetId === cs.id}
                               className="print:hidden rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-500 hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-900/20 dark:text-blue-400"
                             >
-                              {uploadingSheetId === cs.song.id ? '...' : '+ 악보'}
+                              {uploadingSheetId === cs.id ? '...' : '+ 악보'}
                             </button>
                           )}
                         </div>
@@ -690,13 +712,13 @@ export default function ContiEditPage() {
                     </div>
 
                     {/* 악보 inline 뷰어 */}
-                    {sheetOpen && cs.song.sheetMusicUrl && (
+                    {sheetOpen && activeSheetUrl && (
                       <div className="border-t border-gray-100 dark:border-gray-800">
                         {isPdf ? (
-                          <iframe src={cs.song.sheetMusicUrl} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 악보`} />
+                          <iframe src={activeSheetUrl} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 악보`} />
                         ) : (
                           <div className="flex justify-center p-4">
-                            <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 악보`} className="max-w-full rounded-lg object-contain" />
+                            <img src={activeSheetUrl} alt={`${cs.song.title} 악보`} className="max-w-full rounded-lg object-contain" />
                           </div>
                         )}
                       </div>

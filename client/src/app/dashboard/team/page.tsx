@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { teamsApi, Team, Conti, CommunityPost } from '@/lib/api';
+import { teamsApi, uploadApi, Team, Conti, CommunityPost } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
+import ConfirmModal from '@/components/ConfirmModal';
 
 function stripTags(text: string): string {
   return text.replace(/<[^>]*>/g, '');
@@ -17,6 +18,7 @@ export default function TeamPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [myUserId, setMyUserId] = useState('');
 
   // 선택된 팀
@@ -35,7 +37,10 @@ export default function TeamPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [chatFile, setChatFile] = useState<File | null>(null);
+  const [chatFilePreview, setChatFilePreview] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   // 팀 순서 (localStorage 저장)
   const [teamOrder, setTeamOrder] = useState<string[]>([]);
@@ -125,12 +130,15 @@ export default function TeamPage() {
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (stored) {
-      const userId = (JSON.parse(stored) as { id: string }).id;
-      setMyUserId(userId);
-      const savedOrder = localStorage.getItem(`teamOrder_${userId}`);
-      if (savedOrder) setTeamOrder(JSON.parse(savedOrder));
+    if (!stored) {
+      setShowLoginModal(true);
+      setLoading(false);
+      return;
     }
+    const userId = (JSON.parse(stored) as { id: string }).id;
+    setMyUserId(userId);
+    const savedOrder = localStorage.getItem(`teamOrder_${userId}`);
+    if (savedOrder) setTeamOrder(JSON.parse(savedOrder));
     loadTeams();
   }, [loadTeams]);
 
@@ -183,16 +191,43 @@ export default function TeamPage() {
     }
   };
 
+  const handleChatFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setChatFile(f);
+    if (f && f.type.startsWith('image/')) {
+      setChatFilePreview(URL.createObjectURL(f));
+    } else {
+      setChatFilePreview(null);
+    }
+  };
+
+  const removeChatFile = () => {
+    setChatFile(null);
+    setChatFilePreview(null);
+    if (chatFileInputRef.current) chatFileInputRef.current.value = '';
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTeamId || !chatInput.trim()) return;
+    if (!selectedTeamId || (!chatInput.trim() && !chatFile)) return;
     const token = getToken();
     if (!token) return;
     setSendingMsg(true);
     try {
-      const msg = await teamsApi.createPost(token, selectedTeamId, { content: stripTags(chatInput.trim()) });
+      let fileUrl: string | undefined;
+      if (chatFile) {
+        const res = await uploadApi.upload(token, chatFile);
+        fileUrl = res.url;
+      }
+      const msg = await teamsApi.createPost(token, selectedTeamId, {
+        content: stripTags(chatInput.trim()) || '',
+        fileUrl,
+      });
       setMessages((prev) => [...prev, msg]);
       setChatInput('');
+      setChatFile(null);
+      setChatFilePreview(null);
+      if (chatFileInputRef.current) chatFileInputRef.current.value = '';
     } catch (e) {
       setError(e instanceof Error ? e.message : '전송 실패');
     } finally {
@@ -359,17 +394,28 @@ export default function TeamPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <AppHeader page="팀스페이스" />
 
+      {showLoginModal && (
+        <ConfirmModal
+          title="로그인이 필요합니다"
+          message="팀스페이스를 이용하려면 로그인이 필요합니다."
+          confirmText="로그인"
+          cancelText="돌아가기"
+          onConfirm={() => router.push('/login')}
+          onCancel={() => router.push('/dashboard')}
+        />
+      )}
+
       <main className="mx-auto max-w-5xl px-6 py-10">
         {/* 상단 헤더 */}
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
+            className="mb-6 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
               <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/>
             </svg>
-            대시보드
+            대시보드로 돌아가기
           </button>
           <div className="flex gap-2">
             <button
@@ -662,7 +708,30 @@ export default function TeamPage() {
                                           : 'rounded-bl-sm bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
                                       }`}
                                     >
-                                      {msg.content}
+                                      {msg.content && <span>{msg.content}</span>}
+                                      {msg.fileUrl && (
+                                        <div className={msg.content ? 'mt-2' : ''}>
+                                          {/\.(jpg|jpeg|png|gif|webp)$/i.test(msg.fileUrl) ? (
+                                            <img
+                                              src={msg.fileUrl}
+                                              alt="첨부 이미지"
+                                              className="max-w-55 rounded-xl"
+                                            />
+                                          ) : (
+                                            <a
+                                              href={msg.fileUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-center gap-1.5 text-xs underline opacity-80"
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M4 0h5.293A1 1 0 0 1 10 .293L13.707 4a1 1 0 0 1 .293.707V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2m5.5 1.5v2a1 1 0 0 0 1 1h2z"/>
+                                              </svg>
+                                              파일 보기
+                                            </a>
+                                          )}
+                                        </div>
+                                      )}
                                       {/* 내 메시지 삭제 버튼 */}
                                       {isMine && (
                                         <button
@@ -689,7 +758,45 @@ export default function TeamPage() {
                       onSubmit={handleSendMessage}
                       className="border-t border-gray-100 p-3 dark:border-gray-800"
                     >
+                      {/* 파일 미리보기 */}
+                      {chatFile && (
+                        <div className="mb-2 flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 px-3 py-2">
+                          {chatFilePreview ? (
+                            <img src={chatFilePreview} alt="미리보기" className="h-10 w-10 rounded-lg object-cover" />
+                          ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/20">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="text-violet-500">
+                                <path d="M4 0h5.293A1 1 0 0 1 10 .293L13.707 4a1 1 0 0 1 .293.707V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2m5.5 1.5v2a1 1 0 0 0 1 1h2z"/>
+                              </svg>
+                            </div>
+                          )}
+                          <span className="flex-1 truncate text-xs text-gray-600 dark:text-gray-400">{chatFile.name}</span>
+                          <button type="button" onClick={removeChatFile} className="shrink-0 text-gray-400 hover:text-red-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
+                        {/* 파일 첨부 버튼 */}
+                        <button
+                          type="button"
+                          onClick={() => chatFileInputRef.current?.click()}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-violet-500 dark:hover:bg-gray-800 dark:hover:text-violet-400"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"/>
+                            <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2M14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1M2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1z"/>
+                          </svg>
+                        </button>
+                        <input
+                          ref={chatFileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                          onChange={handleChatFileChange}
+                          className="hidden"
+                        />
                         <input
                           type="text"
                           value={chatInput}
@@ -700,7 +807,7 @@ export default function TeamPage() {
                         />
                         <button
                           type="submit"
-                          disabled={sendingMsg || !chatInput.trim()}
+                          disabled={sendingMsg || (!chatInput.trim() && !chatFile)}
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500 text-white transition hover:bg-violet-600 disabled:opacity-40"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">

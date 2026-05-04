@@ -24,11 +24,13 @@ async function request<T>(
         };
         return request<T>(path, { ...options, headers: newHeaders }, false);
       }
+      // 갱신 실패 → 로그인 페이지로
+      localStorage.clear();
+      window.location.replace('/login');
+      throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
     }
-    // 갱신 실패 → 로그인 페이지로
-    localStorage.clear();
-    window.location.replace('/login');
-    throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
+    // 리프레시 토큰 없음 = 비로그인 상태, 리다이렉트 없이 예외만 던짐
+    throw new Error('로그인이 필요합니다.');
   }
 
   const data = await res.json();
@@ -114,7 +116,7 @@ function authHeaders(token: string) {
 export const songsApi = {
   list: (token: string, search?: string) =>
     request<Song[]>(`/songs${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
-      headers: authHeaders(token),
+      headers: token ? authHeaders(token) : {},
     }),
 
   get: (token: string, id: string) =>
@@ -183,6 +185,8 @@ export const bibleApi = {
     request<BibleVerse & { meditationId: string }>('/bible/today', { headers: authHeaders(token) }),
   random: (token: string) =>
     request<BibleVerse>('/bible/random', { headers: authHeaders(token) }),
+  publicRandom: () =>
+    request<BibleVerse>('/bible/random'),
   searchByRef: (token: string, ref: string) =>
     request<BibleVerse[]>(`/bible/search?ref=${encodeURIComponent(ref)}`, { headers: authHeaders(token) }),
   getMeditations: (token: string) =>
@@ -203,6 +207,7 @@ export interface ContiSong {
   tempo: number | null;
   note: string | null;
   orderIndex: number;
+  sheetMusicUrl: string | null;
   song: Song;
 }
 
@@ -273,6 +278,25 @@ export const contisApi = {
       body: JSON.stringify({ ids }),
     }),
 
+  uploadContiSheet: async (token: string, contiId: string, contiSongId: string, file: File): Promise<ContiSong> => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_URL}/contis/${contiId}/songs/${contiSongId}/sheet`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message ?? '업로드 실패');
+    return data as ContiSong;
+  },
+
+  deleteContiSheet: (token: string, contiId: string, contiSongId: string) =>
+    request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}/sheet`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    }),
+
   share: (token: string, contiId: string, teamId: string) =>
     request<Conti>(`/contis/${contiId}/share`, {
       method: 'POST',
@@ -338,6 +362,7 @@ export interface CommunityPost {
   userId: string;
   title: string;
   content: string;
+  fileUrl: string | null;
   createdAt: string;
   updatedAt: string;
   user: { id: string; name: string };
@@ -416,7 +441,7 @@ export const teamsApi = {
   getPosts: (token: string, teamId: string) =>
     request<CommunityPost[]>(`/teams/${teamId}/posts`, { headers: authHeaders(token) }),
 
-  createPost: (token: string, teamId: string, body: { content: string }) =>
+  createPost: (token: string, teamId: string, body: { content: string; fileUrl?: string }) =>
     request<CommunityPost>(`/teams/${teamId}/posts`, {
       method: 'POST',
       headers: authHeaders(token),
@@ -433,7 +458,10 @@ export const teamsApi = {
 export interface Post {
   id: string;
   userId: string;
+  title: string | null;
+  category: string;
   content: string;
+  fileUrl: string | null;
   isAnonymous: boolean;
   meditationId: string | null;
   createdAt: string;
@@ -455,11 +483,33 @@ export interface PostComment {
   isMine: boolean;
 }
 
-export const communityApi = {
-  list: (token: string, cursor?: string) =>
-    request<Post[]>(`/posts${cursor ? `?cursor=${cursor}` : ''}`, { headers: authHeaders(token) }),
+export const uploadApi = {
+  upload: async (token: string, file: File): Promise<{ url: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_URL}/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message ?? '업로드 실패');
+    return data as { url: string };
+  },
+};
 
-  create: (token: string, body: { content: string; isAnonymous?: boolean; meditationId?: string }) =>
+export const communityApi = {
+  list: (token: string, category?: string, cursor?: string) => {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (cursor) params.set('cursor', cursor);
+    const qs = params.toString();
+    return request<Post[]>(`/posts${qs ? `?${qs}` : ''}`, {
+      headers: token ? authHeaders(token) : {},
+    });
+  },
+
+  create: (token: string, body: { title?: string; category?: string; content: string; fileUrl?: string; isAnonymous?: boolean; meditationId?: string }) =>
     request<Post>('/posts', {
       method: 'POST',
       headers: authHeaders(token),
@@ -473,7 +523,9 @@ export const communityApi = {
     }),
 
   getComments: (token: string, postId: string) =>
-    request<PostComment[]>(`/posts/${postId}/comments`, { headers: authHeaders(token) }),
+    request<PostComment[]>(`/posts/${postId}/comments`, {
+      headers: token ? authHeaders(token) : {},
+    }),
 
   createComment: (token: string, postId: string, body: { content: string; isAnonymous?: boolean }) =>
     request<PostComment>(`/posts/${postId}/comments`, {

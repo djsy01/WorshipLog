@@ -10,6 +10,7 @@ import { ContisModule } from './contis/contis.module';
 import { HistoryModule } from './history/history.module';
 import { TeamsModule } from './teams/teams.module';
 import { PostsModule } from './posts/posts.module';
+import { UploadModule } from './uploads/upload.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -25,6 +26,7 @@ import { HealthController } from './health/health.controller';
     HistoryModule,
     TeamsModule,
     PostsModule,
+    UploadModule,
   ],
   controllers: [HealthController],
 })

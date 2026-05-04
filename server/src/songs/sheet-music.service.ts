@@ -69,6 +69,47 @@ export class SheetMusicService {
     });
   }
 
+  async uploadForContiSong(userId: string, contiSongId: string, file: Express.Multer.File) {
+    const cs = await this.prisma.contiSong.findUnique({ where: { id: contiSongId } });
+    if (!cs) throw new NotFoundException('콘티 곡을 찾을 수 없습니다.');
+
+    if (cs.sheetMusicUrl) {
+      const path = this.extractPath(cs.sheetMusicUrl);
+      if (path) await this.supabase.storage.from(this.bucket).remove([path]);
+    }
+
+    const ext = file.originalname.split('.').pop();
+    const path = `${userId}/conti-${contiSongId}-${Date.now()}.${ext}`;
+
+    const { error } = await this.supabase.storage
+      .from(this.bucket)
+      .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
+
+    if (error) throw new InternalServerErrorException('업로드 실패: ' + error.message);
+
+    const { data } = this.supabase.storage.from(this.bucket).getPublicUrl(path);
+
+    return this.prisma.contiSong.update({
+      where: { id: contiSongId },
+      data: { sheetMusicUrl: data.publicUrl },
+    });
+  }
+
+  async removeForContiSong(_userId: string, contiSongId: string) {
+    const cs = await this.prisma.contiSong.findUnique({ where: { id: contiSongId } });
+    if (!cs) throw new NotFoundException('콘티 곡을 찾을 수 없습니다.');
+
+    if (cs.sheetMusicUrl) {
+      const path = this.extractPath(cs.sheetMusicUrl);
+      if (path) await this.supabase.storage.from(this.bucket).remove([path]);
+    }
+
+    return this.prisma.contiSong.update({
+      where: { id: contiSongId },
+      data: { sheetMusicUrl: null },
+    });
+  }
+
   private extractPath(url: string): string | null {
     // URL 형식: .../storage/v1/object/public/sheet-music/{path}
     const match = url.match(/\/sheet-music\/(.+)$/);

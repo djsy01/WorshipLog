@@ -8,7 +8,6 @@ import AppHeader from '@/components/AppHeader';
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
                'Cm', 'Dm', 'Em', 'Fm', 'Gm', 'Am', 'Bm'];
 
-// 구절 레퍼런스 포맷: "시 23:1"
 function formatRef(v: BibleVerse) {
   return `${v.book} ${v.chapter}:${v.verse}`;
 }
@@ -21,6 +20,7 @@ function SongsContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [verse, setVerse] = useState<BibleVerse | null>(null);
+  const [token, setToken] = useState('');
 
   // 찬양 추가 / 수정 모달
   const [showModal, setShowModal] = useState(false);
@@ -48,33 +48,30 @@ function SongsContent() {
   const [showVersePicker, setShowVersePicker] = useState(false);
   const [pickerVerses, setPickerVerses] = useState<BibleVerse[]>([]);
 
-  const getToken = useCallback(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) { router.replace('/login'); return null; }
-    return token;
-  }, [router]);
-
   const fetchSongs = useCallback(async (q?: string) => {
-    const token = getToken();
-    if (!token) return;
     setLoading(true);
     setError('');
     try {
-      const data = await songsApi.list(token, q);
+      const t = localStorage.getItem('accessToken') ?? '';
+      const data = await songsApi.list(t, q);
       setSongs(data);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => {
-    if (!localStorage.getItem('user')) { router.replace('/login'); return; }
-    const token = localStorage.getItem('accessToken') ?? '';
+    const t = localStorage.getItem('accessToken') ?? '';
+    setToken(t);
     fetchSongs();
-    bibleApi.today(token).then(setVerse).catch(() => null);
-  }, [fetchSongs, router]);
+    if (t) {
+      bibleApi.today(t).then(setVerse).catch(() => null);
+    } else {
+      bibleApi.publicRandom().then(setVerse).catch(() => null);
+    }
+  }, [fetchSongs]);
 
   // 검색 디바운스
   useEffect(() => {
@@ -82,14 +79,12 @@ function SongsContent() {
     return () => clearTimeout(t);
   }, [search, fetchSongs]);
 
-  // "이 말씀으로 찬양 찾기" → 구절 참조(시 23:1)로 검색
   const handleVerseSearch = () => {
     if (!verse) return;
     setSearch(formatRef(verse));
   };
 
   const handleSpotifySearch = async () => {
-    const token = getToken();
     if (!token || !spotifyQuery.trim()) return;
     setSpotifyLoading(true);
     setSpotifyResults([]);
@@ -115,7 +110,6 @@ function SongsContent() {
   };
 
   const handleCreate = async () => {
-    const token = getToken();
     if (!token || !form.title.trim() || !form.artist.trim()) return;
     setSaving(true);
     try {
@@ -161,9 +155,7 @@ function SongsContent() {
   };
 
   const handleUpdate = async () => {
-    if (!editingSong) return;
-    const token = getToken();
-    if (!token || !form.title.trim() || !form.artist.trim()) return;
+    if (!editingSong || !token || !form.title.trim() || !form.artist.trim()) return;
     setSaving(true);
     try {
       await songsApi.update(token, editingSong.id, {
@@ -186,7 +178,6 @@ function SongsContent() {
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`"${title}" 을(를) 삭제하시겠습니까?`)) return;
-    const token = getToken();
     if (!token) return;
     try {
       await songsApi.remove(token, id);
@@ -196,25 +187,22 @@ function SongsContent() {
     }
   };
 
-  // 구절 피커: 오늘의 말씀 + 입력한 ref로 bible 검색
   const handlePickerInput = useCallback(async (val: string) => {
     setForm((f) => ({ ...f, scriptureRef: val }));
     setShowVersePicker(true);
     if (!val.trim()) { setPickerVerses([]); return; }
-    const token = localStorage.getItem('accessToken');
     if (!token) return;
     try {
       const results = await bibleApi.searchByRef(token, val);
       setPickerVerses(results);
     } catch { setPickerVerses([]); }
-  }, []);
+  }, [token]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <AppHeader page="찬양 검색" />
 
       <main className="mx-auto max-w-5xl px-6 py-8">
-        {/* 뒤로가기 버튼 */}
         <button
           onClick={() => router.push('/dashboard')}
           className="mb-6 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
@@ -226,15 +214,15 @@ function SongsContent() {
         </button>
 
         {/* 오늘의 말씀 카드 */}
-        {verse && (
-          <div className="mb-6 rounded-xl bg-violet-50 p-5 dark:bg-violet-900/20">
+        <div className="mb-6 rounded-2xl bg-violet-100 px-8 py-6 dark:bg-violet-700/20">
+          {verse ? (
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-400 dark:text-violet-500">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-violet-800 dark:text-violet-500">
                   오늘의 말씀
                 </p>
-                <p className="font-lovespring text-sm leading-relaxed text-gray-800 dark:text-gray-200">{verse.content}</p>
-                <p className="mt-1.5 text-xs font-medium text-violet-500 dark:text-violet-400">
+                <p className="font-lovespring text-lg text-gray-800 dark:text-gray-200">{verse.content}</p>
+                <p className="mt-2 text-sm font-medium text-violet-600 dark:text-violet-400">
                   {formatRef(verse)}
                 </p>
               </div>
@@ -245,10 +233,15 @@ function SongsContent() {
                 이 말씀으로<br />찬양 찾기
               </button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="animate-pulse space-y-2">
+              <div className="h-3 w-20 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-7 w-3/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-5 w-1/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+            </div>
+          )}
+        </div>
 
-        {/* 페이지 타이틀 */}
         <div className="mb-4">
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">찬양 목록</h1>
         </div>
@@ -262,15 +255,16 @@ function SongsContent() {
             placeholder="곡명, 아티스트, 말씀 구절(시 23:1)로 검색..."
             className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:border-violet-500 dark:focus:ring-violet-900/30"
           />
-          <button
-            onClick={() => { setEditingSong(null); setShowModal(true); }}
-            className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
-          >
-            + 찬양 추가
-          </button>
+          {token && (
+            <button
+              onClick={() => { setEditingSong(null); setShowModal(true); }}
+              className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+            >
+              + 찬양 추가
+            </button>
+          )}
         </div>
 
-        {/* 검색 중일 때 태그 표시 */}
         {search && (
           <div className="mb-4 flex items-center gap-2">
             <span className="text-sm text-gray-500 dark:text-gray-400">검색어:</span>
@@ -281,7 +275,6 @@ function SongsContent() {
           </div>
         )}
 
-        {/* 목록 */}
         {loading && (
           <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">불러오는 중...</div>
         )}
@@ -306,7 +299,6 @@ function SongsContent() {
                 key={song.id}
                 className="group relative rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition dark:bg-gray-900 dark:ring-gray-700"
               >
-                {/* 클릭 영역 - 헤더 */}
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : song.id)}
                   className="w-full p-5 text-left"
@@ -345,7 +337,6 @@ function SongsContent() {
                   </div>
                 </button>
 
-                {/* 펼쳐지는 상세 영역 */}
                 {isExpanded && (
                   <div className="border-t border-gray-100 px-5 pb-4 dark:border-gray-800">
                     {song.lyrics && (
@@ -364,20 +355,22 @@ function SongsContent() {
                         📖 {song.scriptureRef} 로 찬양 찾기
                       </button>
                     )}
-                    <div className="mt-3 flex items-center gap-2">
-                      <button
-                        onClick={() => openEditModal(song)}
-                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:border-violet-400 hover:text-violet-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-violet-500 dark:hover:text-violet-400"
-                      >
-                        수정
-                      </button>
-                      <button
-                        onClick={() => handleDelete(song.id, song.title)}
-                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400 hover:border-red-300 hover:text-red-500 dark:border-gray-700 dark:hover:border-red-700 dark:hover:text-red-400"
-                      >
-                        삭제
-                      </button>
-                    </div>
+                    {token && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <button
+                          onClick={() => openEditModal(song)}
+                          className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:border-violet-400 hover:text-violet-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-violet-500 dark:hover:text-violet-400"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => handleDelete(song.id, song.title)}
+                          className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400 hover:border-red-300 hover:text-red-500 dark:border-gray-700 dark:hover:border-red-700 dark:hover:text-red-400"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -386,7 +379,7 @@ function SongsContent() {
         </div>
       </main>
 
-      {/* 찬양 추가 모달 */}
+      {/* 찬양 추가/수정 모달 */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
@@ -395,7 +388,6 @@ function SongsContent() {
             </h2>
 
             <div className="space-y-3">
-              {/* 곡 검색 */}
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
                 <p className="mb-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
                   🎵 곡 검색으로 가져오기
@@ -471,7 +463,6 @@ function SongsContent() {
                 />
               </div>
 
-              {/* 말씀 구절 입력 */}
               <div className="relative">
                 <input
                   type="text"
@@ -482,7 +473,6 @@ function SongsContent() {
                   onBlur={() => setTimeout(() => setShowVersePicker(false), 200)}
                   className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-amber-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-amber-500"
                 />
-                {/* 오늘의 말씀 빠른 선택 + 범위 구절 결과 */}
                 {showVersePicker && (
                   (() => {
                     const todayRef = verse ? formatRef(verse) : null;

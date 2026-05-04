@@ -29,23 +29,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (!stored) {
-      router.replace('/login');
-      return;
-    }
-    setUser(JSON.parse(stored) as User);
     const token = localStorage.getItem('accessToken') ?? '';
-    bibleApi
-      .today(token)
-      .then(setVerse)
-      .catch(() => null);
-    contisApi
-      .list(token)
-      .then((data) => setRecentContis(data.slice(0, 3)))
-      .catch(() => null);
+    if (stored) {
+      setUser(JSON.parse(stored) as User);
+      bibleApi.today(token).then(setVerse).catch(() => null);
+      contisApi.list(token).then((data) => setRecentContis(data.slice(0, 3))).catch(() => null);
+    } else {
+      bibleApi.publicRandom().then(setVerse).catch(() => null);
+    }
   }, [router]);
-
-  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -54,12 +46,14 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-5xl px-6 py-10">
         {/* 타이틀 */}
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">안녕하세요, {user.name}님 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {user ? `안녕하세요, ${user.name}님 👋` : '안녕하세요!'}
+          </h1>
           <p className="text-gray-500 dark:text-gray-400">오늘도 찬양으로 하나님께 영광을 돌리세요.</p>
         </header>
 
         {/* 오늘의 말씀 - 풀 너비 */}
-        <div className="mb-10 rounded-2xl bg-violet-100 px-8 py-6 dark:bg-violet-700/20 min-h-27">
+        <div className="mb-10 rounded-2xl bg-violet-100 px-8 py-6 dark:bg-violet-700/20">
           {verse ? (
             <>
               <p className="mb-2 text-xs font-bold uppercase tracking-widest text-violet-800 dark:text-violet-500">오늘의 말씀</p>
@@ -71,8 +65,8 @@ export default function DashboardPage() {
           ) : (
             <div className="animate-pulse space-y-2">
               <div className="h-3 w-20 rounded bg-violet-200 dark:bg-violet-700/40" />
-              <div className="h-5 w-3/4 rounded bg-violet-200 dark:bg-violet-700/40" />
-              <div className="h-4 w-1/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-7 w-3/4 rounded bg-violet-200 dark:bg-violet-700/40" />
+              <div className="h-5 w-1/4 rounded bg-violet-200 dark:bg-violet-700/40" />
             </div>
           )}
         </div>

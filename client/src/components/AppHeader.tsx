@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
+import ConfirmModal from '@/components/ConfirmModal';
 
 function PrismLogo({ className = 'w-10 h-10' }: { className?: string }) {
     return (
@@ -36,6 +37,7 @@ interface AppHeaderProps {
 export default function AppHeader({ page }: AppHeaderProps) {
     const router = useRouter();
     const [userName, setUserName] = useState('');
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     useEffect(() => {
         const stored = localStorage.getItem('user');
@@ -53,35 +55,60 @@ export default function AppHeader({ page }: AppHeaderProps) {
             /* 무시 */
         }
         localStorage.clear();
-        router.replace('/login');
+        setShowLogoutModal(false);
+        window.location.replace('/dashboard');
     };
 
     return (
-        <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 px-6 py-4 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
-            <div className="mx-auto flex max-w-5xl items-center justify-between">
-                <div
-                    className="flex items-center gap-2 font-bold min-w-0 cursor-pointer"
-                    onClick={() => router.push('/dashboard')}
-                >
-                    <PrismLogo className="w-8 h-8 sm:w-10 sm:h-10 shrink-0" />
-                    <span className="text-violet-600 text-base sm:text-lg shrink-0">WorshipLog</span>
-                    {page && (
-                        <>
-                            <span className="text-gray-300 dark:text-gray-600 shrink-0">/</span>
-                            <span className="text-gray-700 dark:text-gray-200 text-base sm:text-lg truncate">{page}</span>
-                        </>
-                    )}
-                </div>
-                <div className="flex items-center gap-3">
-                    {userName && <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">{userName}</span>}
-                    <button
-                        onClick={handleLogout}
-                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+        <>
+            <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 px-6 py-4 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
+                <div className="mx-auto flex max-w-5xl items-center justify-between">
+                    <div
+                        className="flex items-center gap-2 font-bold min-w-0 cursor-pointer"
+                        onClick={() => router.push('/dashboard')}
                     >
-                        로그아웃
-                    </button>
+                        <PrismLogo className="w-8 h-8 sm:w-10 sm:h-10 shrink-0" />
+                        <span className="text-violet-600 text-base sm:text-lg shrink-0">WorshipLog</span>
+                        {page && (
+                            <>
+                                <span className="text-gray-300 dark:text-gray-600 shrink-0">/</span>
+                                <span className="text-gray-700 dark:text-gray-200 text-base sm:text-lg truncate">{page}</span>
+                            </>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {userName ? (
+                            <>
+                                <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">{userName}</span>
+                                <button
+                                    onClick={() => setShowLogoutModal(true)}
+                                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                                >
+                                    로그아웃
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                onClick={() => router.push('/login')}
+                                className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-violet-700"
+                            >
+                                로그인
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </div>
-        </header>
+            </header>
+
+            {showLogoutModal && (
+                <ConfirmModal
+                    title="로그아웃 하시겠습니까?"
+                    message="로그아웃 후 대시보드로 이동합니다."
+                    confirmText="로그아웃"
+                    cancelText="취소"
+                    onConfirm={handleLogout}
+                    onCancel={() => setShowLogoutModal(false)}
+                />
+            )}
+        </>
     );
 }

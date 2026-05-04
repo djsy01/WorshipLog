@@ -126,13 +126,14 @@ model Conti {
 }
 
 model ContiSong {
-  id         String  @id @default(uuid())
-  contiId    String  @map("conti_id")
-  songId     String  @map("song_id")
-  key        String?
-  tempo      Int?
-  orderIndex Int     @default(0) @map("order_index")
-  note       String?
+  id            String  @id @default(uuid())
+  contiId       String  @map("conti_id")
+  songId        String  @map("song_id")
+  key           String?
+  tempo         Int?
+  orderIndex    Int     @default(0) @map("order_index")
+  note          String?
+  sheetMusicUrl String? @map("sheet_music_url")
 
   conti Conti @relation(fields: [contiId], references: [id], onDelete: Cascade)
   song  Song  @relation(fields: [songId], references: [id], onDelete: Cascade)
@@ -162,6 +163,7 @@ model CommunityPost {
   userId    String   @map("user_id")
   title     String?
   content   String
+  fileUrl   String?  @map("file_url")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -205,7 +207,10 @@ model Meditation {
 model Post {
   id           String   @id @default(uuid())
   userId       String   @map("user_id")
+  title        String?  @map("title")
+  category     String   @default("free") @map("category")
   content      String
+  fileUrl      String?  @map("file_url")
   isAnonymous  Boolean  @default(true) @map("is_anonymous")
   meditationId String?  @map("meditation_id")
   createdAt    DateTime @default(now()) @map("created_at")
