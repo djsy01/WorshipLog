@@ -56,7 +56,7 @@ export default function AppHeader({ page }: AppHeaderProps) {
         }
         localStorage.clear();
         setShowLogoutModal(false);
-        router.replace('/dashboard');
+        window.location.replace('/dashboard');
     };
 
     return (
