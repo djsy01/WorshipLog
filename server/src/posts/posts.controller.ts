@@ -9,14 +9,18 @@ export class PostsController {
   constructor(private postsService: PostsService) {}
 
   @Get()
-  list(@CurrentUser('sub') userId: string, @Query('cursor') cursor?: string) {
-    return this.postsService.list(userId, cursor);
+  list(
+    @CurrentUser('sub') userId: string,
+    @Query('category') category?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.postsService.list(userId, category, cursor);
   }
 
   @Post()
   create(
     @CurrentUser('sub') userId: string,
-    @Body() dto: { content: string; isAnonymous?: boolean; meditationId?: string },
+    @Body() dto: { title?: string; category?: string; content: string; isAnonymous?: boolean; meditationId?: string },
   ) {
     return this.postsService.create(userId, dto);
   }

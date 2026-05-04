@@ -203,6 +203,7 @@ export interface ContiSong {
   tempo: number | null;
   note: string | null;
   orderIndex: number;
+  sheetMusicUrl: string | null;
   song: Song;
 }
 
@@ -271,6 +272,25 @@ export const contisApi = {
       method: 'PUT',
       headers: authHeaders(token),
       body: JSON.stringify({ ids }),
+    }),
+
+  uploadContiSheet: async (token: string, contiId: string, contiSongId: string, file: File): Promise<ContiSong> => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_URL}/contis/${contiId}/songs/${contiSongId}/sheet`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message ?? '업로드 실패');
+    return data as ContiSong;
+  },
+
+  deleteContiSheet: (token: string, contiId: string, contiSongId: string) =>
+    request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}/sheet`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
     }),
 
   share: (token: string, contiId: string, teamId: string) =>
@@ -433,6 +453,8 @@ export const teamsApi = {
 export interface Post {
   id: string;
   userId: string;
+  title: string | null;
+  category: string;
   content: string;
   isAnonymous: boolean;
   meditationId: string | null;
@@ -456,10 +478,15 @@ export interface PostComment {
 }
 
 export const communityApi = {
-  list: (token: string, cursor?: string) =>
-    request<Post[]>(`/posts${cursor ? `?cursor=${cursor}` : ''}`, { headers: authHeaders(token) }),
+  list: (token: string, category?: string, cursor?: string) => {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (cursor) params.set('cursor', cursor);
+    const qs = params.toString();
+    return request<Post[]>(`/posts${qs ? `?${qs}` : ''}`, { headers: authHeaders(token) });
+  },
 
-  create: (token: string, body: { content: string; isAnonymous?: boolean; meditationId?: string }) =>
+  create: (token: string, body: { title?: string; category?: string; content: string; isAnonymous?: boolean; meditationId?: string }) =>
     request<Post>('/posts', {
       method: 'POST',
       headers: authHeaders(token),

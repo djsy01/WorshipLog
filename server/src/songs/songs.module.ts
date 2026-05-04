@@ -7,5 +7,6 @@ import { SheetMusicService } from './sheet-music.service';
 @Module({
   controllers: [SongsController, SheetMusicController],
   providers: [SongsService, SheetMusicService],
+  exports: [SheetMusicService],
 })
 export class SongsModule {}
