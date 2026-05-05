@@ -220,11 +220,20 @@ function WriteForm({
   const [submitting, setSubmitting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
+    setFileError(null);
+    if (f && f.size > MAX_FILE_SIZE) {
+      setFileError(`파일 크기가 너무 큽니다. 최대 50MB까지 업로드 가능합니다. (현재: ${(f.size / 1024 / 1024).toFixed(1)}MB)`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     setFile(f);
     if (f && f.type.startsWith('image/')) {
       setFilePreview(URL.createObjectURL(f));
@@ -358,11 +367,14 @@ function WriteForm({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/flac,audio/aac,video/mp4,video/quicktime,video/webm,video/x-msvideo"
               onChange={handleFileChange}
               className="hidden"
             />
           </div>
+          {fileError && (
+            <p className="w-full px-5 pb-2 text-xs text-red-500">{fileError}</p>
+          )}
           <div className="flex items-center gap-2">
             <button
               onClick={onCancel}
@@ -576,6 +588,7 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(false);
 
   function getToken() {
+    if (typeof window === 'undefined') return '';
     return localStorage.getItem('accessToken') ?? '';
   }
 
