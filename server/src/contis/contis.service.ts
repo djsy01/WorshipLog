@@ -129,7 +129,7 @@ export class ContisService {
         note: dto.note,
         orderIndex: count,
       },
-      include: { song: true },
+      include: { song: true, sheets: { orderBy: { orderIndex: 'asc' } } },
     });
   }
 
@@ -138,7 +138,7 @@ export class ContisService {
     return this.prisma.contiSong.update({
       where: { id: contiSongId },
       data: dto,
-      include: { song: true },
+      include: { song: true, sheets: { orderBy: { orderIndex: 'asc' } } },
     });
   }
 
