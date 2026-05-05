@@ -39,6 +39,7 @@ export default function TeamPage() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [chatFile, setChatFile] = useState<File | null>(null);
   const [chatFilePreview, setChatFilePreview] = useState<string | null>(null);
+  const [chatFileError, setChatFileError] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -193,6 +194,12 @@ export default function TeamPage() {
 
   const handleChatFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
+    setChatFileError(null);
+    if (f && f.size > 50 * 1024 * 1024) {
+      setChatFileError(`최대 50MB까지 업로드 가능합니다. (현재: ${(f.size / 1024 / 1024).toFixed(1)}MB)`);
+      if (chatFileInputRef.current) chatFileInputRef.current.value = '';
+      return;
+    }
     setChatFile(f);
     if (f && f.type.startsWith('image/')) {
       setChatFilePreview(URL.createObjectURL(f));
@@ -759,6 +766,9 @@ export default function TeamPage() {
                       className="border-t border-gray-100 p-3 dark:border-gray-800"
                     >
                       {/* 파일 미리보기 */}
+                      {chatFileError && (
+                        <p className="mb-2 text-xs text-red-500 px-1">{chatFileError}</p>
+                      )}
                       {chatFile && (
                         <div className="mb-2 flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 px-3 py-2">
                           {chatFilePreview ? (
@@ -793,7 +803,7 @@ export default function TeamPage() {
                         <input
                           ref={chatFileInputRef}
                           type="file"
-                          accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                          accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/flac,audio/aac,video/mp4,video/quicktime,video/webm,video/x-msvideo"
                           onChange={handleChatFileChange}
                           className="hidden"
                         />

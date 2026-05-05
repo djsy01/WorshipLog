@@ -6,8 +6,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  const allowedOrigins = (process.env.CLIENT_URL ?? 'http://localhost:3001').split(',').map((s) => s.trim());
   app.enableCors({
-    origin: process.env.CLIENT_URL ?? 'http://localhost:3001',
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked: ${origin}`));
+      }
+    },
     credentials: true,
   });
   await app.listen(process.env.PORT ?? 3000);

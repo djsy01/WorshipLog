@@ -19,16 +19,18 @@ export class UploadController {
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 20 * 1024 * 1024 },
+      limits: { fileSize: 500 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         const allowed = [
           'image/jpeg', 'image/png', 'image/webp', 'image/gif',
           'application/pdf',
+          'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg', 'audio/flac', 'audio/aac',
+          'video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo',
         ];
         if (allowed.includes(file.mimetype)) {
           cb(null, true);
         } else {
-          cb(new BadRequestException('이미지(JPG/PNG/WEBP/GIF) 또는 PDF만 업로드 가능합니다.'), false);
+          cb(new BadRequestException('이미지, PDF, 음원(MP3/WAV/AAC 등), 영상(MP4/MOV 등)만 업로드 가능합니다.'), false);
         }
       },
     }),
