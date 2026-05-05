@@ -45,15 +45,20 @@ export class SongsController {
   @Patch(':id')
   update(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body() dto: UpdateSongDto,
   ) {
-    return this.songsService.update(userId, id, dto);
+    return this.songsService.update(userId, userRole, id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.songsService.remove(userId, id);
+  remove(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    return this.songsService.remove(userId, userRole, id);
   }
 }
