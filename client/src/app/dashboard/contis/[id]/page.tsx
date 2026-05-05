@@ -6,7 +6,7 @@ import { contisApi, teamsApi, songsApi, Conti, ContiSong, Song, Team } from '@/l
 import AppHeader from '@/components/AppHeader';
 import PdfSheetViewer from '@/components/PdfSheetViewer';
 
-const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'Cm', 'Dm', 'Em', 'Fm', 'Gm', 'Am', 'Bm'];
+const KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B', 'Cm', 'Dm', 'Em', 'Fm', 'Gm', 'Am', 'Bm'];
 
 export default function ContiEditPage() {
   const router = useRouter();
