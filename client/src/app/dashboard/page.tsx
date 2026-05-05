@@ -99,6 +99,23 @@ export default function DashboardPage() {
                 </div>
               );
             })}
+
+            {/* 사용 가이드 링크 */}
+            <Link
+              href="/dashboard/guide"
+              className="flex items-center justify-between rounded-xl border border-dashed border-violet-200 bg-violet-50/60 px-4 py-3 hover:border-violet-400 hover:bg-violet-100/60 dark:border-violet-800/50 dark:bg-violet-950/30 dark:hover:border-violet-600"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📘</span>
+                <div>
+                  <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">사용 가이드</p>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">기능별 사용법 보기</p>
+                </div>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
           </div>
 
           {/* ── 오른쪽: 메인 콘텐츠 ── */}
