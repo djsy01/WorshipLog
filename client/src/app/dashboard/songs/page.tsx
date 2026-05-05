@@ -118,8 +118,8 @@ function SongsContent() {
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // 카드 expand
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // 상세 모달
+  const [detailSong, setDetailSong] = useState<Song | null>(null);
 
   // 페이지네이션
   const PAGE_SIZE = 20;
@@ -432,90 +432,35 @@ function SongsContent() {
               </div>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
-              {pagedSongs.map((song) => {
-                const isExpanded = expandedId === song.id;
-                return (
-                  <div
-                    key={song.id}
-                    className="group relative rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition dark:bg-gray-900 dark:ring-gray-700"
-                  >
-                    <button
-                      onClick={() => setExpandedId(isExpanded ? null : song.id)}
-                      className="w-full p-5 text-left"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="truncate font-semibold text-gray-900 dark:text-white">{song.title}</h3>
-                          {song.artist && (
-                            <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">{song.artist}</p>
-                          )}
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {song.defaultKey && (
-                              <span className="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                                {song.defaultKey}
-                              </span>
-                            )}
-                            {song.tempo && (
-                              <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-                                ♩ {song.tempo} BPM
-                              </span>
-                            )}
-                            {song.scriptureRef && (
-                              <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                                📖 {song.scriptureRef}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className={`h-4 w-4 shrink-0 text-gray-300 transition-transform dark:text-gray-600 ${isExpanded ? 'rotate-180' : ''}`}
-                          fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="border-t border-gray-100 px-5 pb-4 dark:border-gray-800">
-                        {song.lyrics && (
-                          <div className="mt-3">
-                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">가사</p>
-                            <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-600 dark:text-gray-400">
-                              {song.lyrics}
-                            </p>
-                          </div>
-                        )}
-                        {song.scriptureRef && (
-                          <button
-                            onClick={() => setSearch(song.scriptureRef!)}
-                            className="mt-3 text-xs text-amber-600 hover:underline dark:text-amber-400"
-                          >
-                            📖 {song.scriptureRef} 로 찬양 찾기
-                          </button>
-                        )}
-                        {token && (userRole === 'admin' || song.createdBy === userId) && (
-                          <div className="mt-3 flex items-center gap-2">
-                            <button
-                              onClick={() => openEditModal(song)}
-                              className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:border-violet-400 hover:text-violet-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-violet-500 dark:hover:text-violet-400"
-                            >
-                              수정
-                            </button>
-                            <button
-                              onClick={() => handleDelete(song.id, song.title)}
-                              className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400 hover:border-red-300 hover:text-red-500 dark:border-gray-700 dark:hover:border-red-700 dark:hover:text-red-400"
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        )}
-                      </div>
+              {pagedSongs.map((song) => (
+                <button
+                  key={song.id}
+                  onClick={() => setDetailSong(song)}
+                  className="group rounded-xl bg-white p-5 text-left shadow-sm ring-1 ring-gray-200 transition hover:ring-violet-300 dark:bg-gray-900 dark:ring-gray-700 dark:hover:ring-violet-600"
+                >
+                  <h3 className="truncate font-semibold text-gray-900 dark:text-white">{song.title}</h3>
+                  {song.artist && (
+                    <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">{song.artist}</p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {song.defaultKey && (
+                      <span className="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                        {song.defaultKey}
+                      </span>
+                    )}
+                    {song.tempo && (
+                      <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                        ♩ {song.tempo} BPM
+                      </span>
+                    )}
+                    {song.scriptureRef && (
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                        📖 {song.scriptureRef}
+                      </span>
                     )}
                   </div>
-                );
-              })}
+                </button>
+              ))}
             </div>
 
             {totalPages > 1 && (
@@ -563,6 +508,87 @@ function SongsContent() {
           </div>
         </div>
       </main>
+
+      {/* 상세 모달 */}
+      {detailSong && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setDetailSong(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-xl dark:bg-gray-900 flex flex-col max-h-[85vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className="flex items-start justify-between gap-3 p-6 pb-4">
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">{detailSong.title}</h2>
+                {detailSong.artist && (
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{detailSong.artist}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setDetailSong(null)}
+                className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* 배지 */}
+            <div className="flex flex-wrap gap-2 px-6 pb-4">
+              {detailSong.defaultKey && (
+                <span className="rounded-lg bg-violet-50 px-3 py-1 text-sm font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                  {detailSong.defaultKey}
+                </span>
+              )}
+              {detailSong.tempo && (
+                <span className="rounded-lg bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                  ♩ {detailSong.tempo} BPM
+                </span>
+              )}
+              {detailSong.scriptureRef && (
+                <button
+                  onClick={() => { setSearch(detailSong.scriptureRef!); setDetailSong(null); }}
+                  className="rounded-lg bg-gray-100 px-3 py-1 text-sm text-gray-600 hover:bg-amber-50 hover:text-amber-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-amber-900/20 dark:hover:text-amber-400 transition"
+                >
+                  📖 {detailSong.scriptureRef}
+                </button>
+              )}
+            </div>
+
+            {/* 가사 */}
+            {detailSong.lyrics && (
+              <div className="flex-1 overflow-y-auto border-t border-gray-100 dark:border-gray-800 px-6 py-4">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">가사</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                  {detailSong.lyrics}
+                </p>
+              </div>
+            )}
+
+            {/* 하단 버튼 */}
+            {token && (userRole === 'admin' || detailSong.createdBy === userId) && (
+              <div className="flex gap-2 border-t border-gray-100 dark:border-gray-800 p-4">
+                <button
+                  onClick={() => { openEditModal(detailSong); setDetailSong(null); }}
+                  className="flex-1 rounded-xl border border-gray-200 py-2 text-sm font-medium text-gray-600 transition hover:border-violet-400 hover:text-violet-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-violet-500 dark:hover:text-violet-400"
+                >
+                  수정
+                </button>
+                <button
+                  onClick={() => { handleDelete(detailSong.id, detailSong.title); setDetailSong(null); }}
+                  className="flex-1 rounded-xl border border-gray-200 py-2 text-sm font-medium text-gray-400 transition hover:border-red-300 hover:text-red-500 dark:border-gray-700 dark:hover:border-red-700 dark:hover:text-red-400"
+                >
+                  삭제
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 찬양 추가/수정 모달 */}
       {showModal && (
