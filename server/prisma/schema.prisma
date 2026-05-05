@@ -127,20 +127,32 @@ model Conti {
 }
 
 model ContiSong {
-  id            String  @id @default(uuid())
-  contiId       String  @map("conti_id")
-  songId        String  @map("song_id")
-  key           String?
-  tempo         Int?
-  orderIndex    Int     @default(0) @map("order_index")
-  note          String?
-  sheetMusicUrl String? @map("sheet_music_url")
+  id         String  @id @default(uuid())
+  contiId    String  @map("conti_id")
+  songId     String  @map("song_id")
+  key        String?
+  tempo      Int?
+  orderIndex Int     @default(0) @map("order_index")
+  note       String?
 
-  conti Conti @relation(fields: [contiId], references: [id], onDelete: Cascade)
-  song  Song  @relation(fields: [songId], references: [id], onDelete: Cascade)
+  conti  Conti            @relation(fields: [contiId], references: [id], onDelete: Cascade)
+  song   Song             @relation(fields: [songId], references: [id], onDelete: Cascade)
+  sheets ContiSongSheet[]
 
   @@unique([contiId, orderIndex])
   @@map("conti_songs")
+}
+
+model ContiSongSheet {
+  id          String   @id @default(uuid())
+  contiSongId String   @map("conti_song_id")
+  url         String
+  orderIndex  Int      @default(0) @map("order_index")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  contiSong ContiSong @relation(fields: [contiSongId], references: [id], onDelete: Cascade)
+
+  @@map("conti_song_sheets")
 }
 
 model History {

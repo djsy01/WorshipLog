@@ -73,11 +73,7 @@ export class SheetMusicService {
     const cs = await this.prisma.contiSong.findUnique({ where: { id: contiSongId } });
     if (!cs) throw new NotFoundException('콘티 곡을 찾을 수 없습니다.');
 
-    if (cs.sheetMusicUrl) {
-      const path = this.extractPath(cs.sheetMusicUrl);
-      if (path) await this.supabase.storage.from(this.bucket).remove([path]);
-    }
-
+    const orderIndex = await this.prisma.contiSongSheet.count({ where: { contiSongId } });
     const ext = file.originalname.split('.').pop();
     const path = `${userId}/conti-${contiSongId}-${Date.now()}.${ext}`;
 
@@ -89,24 +85,28 @@ export class SheetMusicService {
 
     const { data } = this.supabase.storage.from(this.bucket).getPublicUrl(path);
 
-    return this.prisma.contiSong.update({
+    await this.prisma.contiSongSheet.create({
+      data: { contiSongId, url: data.publicUrl, orderIndex },
+    });
+
+    return this.prisma.contiSong.findUnique({
       where: { id: contiSongId },
-      data: { sheetMusicUrl: data.publicUrl },
+      include: { song: true, sheets: { orderBy: { orderIndex: 'asc' } } },
     });
   }
 
-  async removeForContiSong(_userId: string, contiSongId: string) {
-    const cs = await this.prisma.contiSong.findUnique({ where: { id: contiSongId } });
-    if (!cs) throw new NotFoundException('콘티 곡을 찾을 수 없습니다.');
+  async removeSheet(_userId: string, sheetId: string) {
+    const sheet = await this.prisma.contiSongSheet.findUnique({ where: { id: sheetId } });
+    if (!sheet) throw new NotFoundException('악보를 찾을 수 없습니다.');
 
-    if (cs.sheetMusicUrl) {
-      const path = this.extractPath(cs.sheetMusicUrl);
-      if (path) await this.supabase.storage.from(this.bucket).remove([path]);
-    }
+    const path = this.extractPath(sheet.url);
+    if (path) await this.supabase.storage.from(this.bucket).remove([path]);
 
-    return this.prisma.contiSong.update({
-      where: { id: contiSongId },
-      data: { sheetMusicUrl: null },
+    await this.prisma.contiSongSheet.delete({ where: { id: sheetId } });
+
+    return this.prisma.contiSong.findUnique({
+      where: { id: sheet.contiSongId },
+      include: { song: true, sheets: { orderBy: { orderIndex: 'asc' } } },
     });
   }
 

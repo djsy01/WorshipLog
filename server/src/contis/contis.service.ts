@@ -10,7 +10,10 @@ import { AddSongDto } from './dto/add-song.dto';
 import { UpdateContiSongDto } from './dto/update-conti-song.dto';
 
 const CONTI_INCLUDE = {
-  songs: { include: { song: true }, orderBy: { orderIndex: 'asc' as const } },
+  songs: {
+    include: { song: true, sheets: { orderBy: { orderIndex: 'asc' as const } } },
+    orderBy: { orderIndex: 'asc' as const },
+  },
   creator: { select: { id: true, name: true } },
 };
 

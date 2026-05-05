@@ -39,12 +39,10 @@ export default function AppHeader({ page }: AppHeaderProps) {
     const [userName, setUserName] = useState('');
     const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
         const stored = localStorage.getItem('user');
-        if (stored) {
-            const u = JSON.parse(stored) as { name: string };
-            setUserName(u.name);
-        }
+        if (stored) setUserName((JSON.parse(stored) as { name: string }).name);
     }, []);
 
     const handleLogout = async () => {
