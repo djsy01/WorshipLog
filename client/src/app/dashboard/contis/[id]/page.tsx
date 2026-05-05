@@ -287,8 +287,21 @@ export default function ContiEditPage() {
   const handlePrint = () => {
     const prev = document.title;
     document.title = conti?.title ?? 'WorshipLog';
+    const root = document.documentElement;
+    const isDark = root.classList.contains('dark');
+
+    window.addEventListener('afterprint', () => {
+      document.title = prev;
+      if (isDark) {
+        // 인라인 스타일로 즉시 다크 배경 고정 → 흰 프레임 차단
+        root.style.backgroundColor = '#030712';
+        requestAnimationFrame(() => {
+          root.style.backgroundColor = '';
+        });
+      }
+    }, { once: true });
+
     window.print();
-    document.title = prev;
   };
 
   const filteredSongs = allSongs.filter((s) => {
@@ -331,7 +344,12 @@ export default function ContiEditPage() {
       {/* 프린트 전용 레이아웃 */}
       <div className="hidden print:block print-content" style={{ fontFamily: 'Arial, sans-serif', color: '#111' }}>
         {conti.songs.map((cs, index) => {
-          const hasPdfSheet = cs.sheets.some((s) => s.url.toLowerCase().includes('.pdf'));
+          const printSheets = cs.sheets.length > 0
+            ? cs.sheets
+            : cs.song.sheetMusicUrl
+              ? [{ id: 'default', url: cs.song.sheetMusicUrl }]
+              : [];
+          const hasPdfSheet = printSheets.some((s) => s.url.toLowerCase().includes('.pdf'));
           const colCount = cs.song.artist ? 5 : 4;
           return (
             <div key={cs.id} style={{ pageBreakBefore: index === 0 ? 'auto' : 'always', padding: '8px 24px 16px' }}>
@@ -393,7 +411,7 @@ export default function ContiEditPage() {
                   </tbody>
                 </table>
               )}
-              {cs.sheets.map((sheet) => {
+              {printSheets.map((sheet) => {
                 const isPdf = sheet.url.toLowerCase().includes('.pdf');
                 return isPdf ? (
                   <PdfSheetViewer
@@ -618,12 +636,12 @@ export default function ContiEditPage() {
                               {cs.tempo ?? cs.song.tempo} BPM
                             </span>
                           )}
-                          {cs.sheets.length > 0 && (
+                          {(cs.sheets.length > 0 || cs.song.sheetMusicUrl) && (
                             <button
                               onClick={() => setExpandedSheetId(sheetOpen ? null : cs.id)}
                               className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
                             >
-                              {sheetOpen ? '악보 닫기' : `악보 ${cs.sheets.length}장`}
+                              {sheetOpen ? '악보 닫기' : cs.sheets.length > 0 ? `임시악보 ${cs.sheets.length}장` : '기본악보'}
                             </button>
                           )}
                           <button
@@ -690,32 +708,47 @@ export default function ContiEditPage() {
                       </div>
                     </div>
 
-                    {/* 악보 inline 뷰어 (여러 장) */}
-                    {sheetOpen && cs.sheets.length > 0 && (
+                    {/* 악보 inline 뷰어 */}
+                    {sheetOpen && (
                       <div className="border-t border-gray-100 dark:border-gray-800">
-                        {cs.sheets.map((sheet, si) => {
-                          const isPdf = sheet.url.toLowerCase().includes('.pdf');
-                          return (
-                            <div key={sheet.id} className={si > 0 ? 'border-t border-gray-100 dark:border-gray-800' : ''}>
-                              <div className="print:hidden flex items-center justify-between px-4 py-1.5">
-                                <span className="text-xs text-gray-400">{si + 1}번째 악보</span>
-                                <button
-                                  onClick={() => handleSheetDelete(cs.id, sheet.id)}
-                                  className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                >
-                                  삭제
-                                </button>
-                              </div>
-                              {isPdf ? (
-                                <iframe src={sheet.url} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 악보 ${si + 1}`} />
-                              ) : (
-                                <div className="flex justify-center p-4">
-                                  <img src={sheet.url} alt={`${cs.song.title} 악보 ${si + 1}`} className="max-w-full rounded-lg object-contain" />
+                        {cs.sheets.length > 0 ? (
+                          cs.sheets.map((sheet, si) => {
+                            const isPdf = sheet.url.toLowerCase().includes('.pdf');
+                            return (
+                              <div key={sheet.id} className={si > 0 ? 'border-t border-gray-100 dark:border-gray-800' : ''}>
+                                <div className="print:hidden flex items-center justify-between px-4 py-1.5">
+                                  <span className="text-xs text-gray-400">임시악보 {si + 1}장</span>
+                                  <button
+                                    onClick={() => handleSheetDelete(cs.id, sheet.id)}
+                                    className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  >
+                                    삭제
+                                  </button>
                                 </div>
-                              )}
+                                {isPdf ? (
+                                  <iframe src={sheet.url} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 악보 ${si + 1}`} />
+                                ) : (
+                                  <div className="flex justify-center p-4">
+                                    <img src={sheet.url} alt={`${cs.song.title} 악보 ${si + 1}`} className="max-w-full rounded-lg object-contain" />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : cs.song.sheetMusicUrl ? (
+                          <div>
+                            <div className="print:hidden flex items-center px-4 py-1.5">
+                              <span className="text-xs text-gray-400">기본악보</span>
                             </div>
-                          );
-                        })}
+                            {cs.song.sheetMusicUrl.toLowerCase().includes('.pdf') ? (
+                              <iframe src={cs.song.sheetMusicUrl} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 기본악보`} />
+                            ) : (
+                              <div className="flex justify-center p-4">
+                                <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 기본악보`} className="max-w-full rounded-lg object-contain" />
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>
