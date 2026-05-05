@@ -58,10 +58,10 @@ export class SongsService {
       : { isPublic: true as const };
 
     if (!search) {
-      return this.prisma.song.findMany({ where, orderBy: { createdAt: 'desc' } });
+      return this.prisma.song.findMany({ where, orderBy: { title: 'asc' } });
     }
 
-    const songs = await this.prisma.song.findMany({ where, orderBy: { createdAt: 'desc' } });
+    const songs = await this.prisma.song.findMany({ where, orderBy: { title: 'asc' } });
 
     const q = search.toLowerCase();
     return songs.filter(
@@ -83,19 +83,19 @@ export class SongsService {
     return song;
   }
 
-  async update(userId: string, id: string, dto: UpdateSongDto) {
+  async update(userId: string, userRole: string, id: string, dto: UpdateSongDto) {
     const song = await this.prisma.song.findUnique({ where: { id } });
     if (!song) throw new NotFoundException('찬양을 찾을 수 없습니다.');
-    if (song.createdBy !== userId) {
+    if (userRole !== 'admin' && song.createdBy !== userId) {
       throw new ForbiddenException('수정 권한이 없습니다.');
     }
     return this.prisma.song.update({ where: { id }, data: dto });
   }
 
-  async remove(userId: string, id: string) {
+  async remove(userId: string, userRole: string, id: string) {
     const song = await this.prisma.song.findUnique({ where: { id } });
     if (!song) throw new NotFoundException('찬양을 찾을 수 없습니다.');
-    if (song.createdBy !== userId) {
+    if (userRole !== 'admin' && song.createdBy !== userId) {
       throw new ForbiddenException('삭제 권한이 없습니다.');
     }
     await this.prisma.song.delete({ where: { id } });

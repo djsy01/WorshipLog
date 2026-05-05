@@ -58,7 +58,7 @@ export class AuthService {
     if (!user.emailVerified)
       throw new ForbiddenException('이메일 인증이 필요합니다. 메일함을 확인해주세요.');
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
     return { user: this.sanitize(user), ...tokens };
   }
@@ -74,7 +74,7 @@ export class AuthService {
 
     await this.redis.del(`email_verify:${token}`);
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
     return { user: this.sanitize(user), ...tokens };
   }
@@ -108,7 +108,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
     return tokens;
   }
@@ -119,8 +119,8 @@ export class AuthService {
     await this.mail.sendVerificationEmail(email, name, token);
   }
 
-  private async generateTokens(userId: string, email: string) {
-    const payload = { sub: userId, email };
+  private async generateTokens(userId: string, email: string, role = 'user') {
+    const payload = { sub: userId, email, role };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.config.get('JWT_ACCESS_SECRET'),

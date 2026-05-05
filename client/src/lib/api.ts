@@ -199,6 +199,12 @@ export const bibleApi = {
     }),
 };
 
+export interface ContiSongSheet {
+  id: string;
+  url: string;
+  orderIndex: number;
+}
+
 export interface ContiSong {
   id: string;
   contiId: string;
@@ -207,7 +213,7 @@ export interface ContiSong {
   tempo: number | null;
   note: string | null;
   orderIndex: number;
-  sheetMusicUrl: string | null;
+  sheets: ContiSongSheet[];
   song: Song;
 }
 
@@ -291,8 +297,8 @@ export const contisApi = {
     return data as ContiSong;
   },
 
-  deleteContiSheet: (token: string, contiId: string, contiSongId: string) =>
-    request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}/sheet`, {
+  deleteContiSheet: (token: string, contiId: string, contiSongId: string, sheetId: string) =>
+    request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}/sheet/${sheetId}`, {
       method: 'DELETE',
       headers: authHeaders(token),
     }),

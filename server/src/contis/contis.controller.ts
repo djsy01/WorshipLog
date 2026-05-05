@@ -135,11 +135,11 @@ export class ContisController {
     return this.sheetMusicService.uploadForContiSong(userId, contiSongId, file);
   }
 
-  @Delete(':id/songs/:contiSongId/sheet')
+  @Delete(':id/songs/:contiSongId/sheet/:sheetId')
   deleteContiSheet(
     @CurrentUser('sub') userId: string,
-    @Param('contiSongId') contiSongId: string,
+    @Param('sheetId') sheetId: string,
   ) {
-    return this.sheetMusicService.removeForContiSong(userId, contiSongId);
+    return this.sheetMusicService.removeSheet(userId, sheetId);
   }
 }
