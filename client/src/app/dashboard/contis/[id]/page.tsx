@@ -287,15 +287,20 @@ export default function ContiEditPage() {
   const handlePrint = () => {
     const prev = document.title;
     document.title = conti?.title ?? 'WorshipLog';
-    const onAfterPrint = () => {
+    const root = document.documentElement;
+    const isDark = root.classList.contains('dark');
+
+    window.addEventListener('afterprint', () => {
       document.title = prev;
-      // 프린트 후 다크모드 스타일 강제 리페인트
-      document.documentElement.style.display = 'none';
-      document.documentElement.offsetHeight; // reflow trigger
-      document.documentElement.style.display = '';
-      window.removeEventListener('afterprint', onAfterPrint);
-    };
-    window.addEventListener('afterprint', onAfterPrint);
+      if (isDark) {
+        // 인라인 스타일로 즉시 다크 배경 고정 → 흰 프레임 차단
+        root.style.backgroundColor = '#030712';
+        requestAnimationFrame(() => {
+          root.style.backgroundColor = '';
+        });
+      }
+    }, { once: true });
+
     window.print();
   };
 
