@@ -92,6 +92,8 @@ function SongsContent() {
   const [error, setError] = useState('');
   const [verse, setVerse] = useState<BibleVerse | null>(null);
   const [token, setToken] = useState('');
+  const [userId, setUserId] = useState('');
+  const [userRole, setUserRole] = useState('');
 
   // 찬양 추가 / 수정 모달
   const [showModal, setShowModal] = useState(false);
@@ -140,6 +142,13 @@ function SongsContent() {
   useEffect(() => {
     const t = localStorage.getItem('accessToken') ?? '';
     setToken(t);
+    if (t) {
+      try {
+        const payload = JSON.parse(atob(t.split('.')[1]));
+        setUserId(payload.sub ?? '');
+        setUserRole(payload.role ?? 'user');
+      } catch { /* invalid token */ }
+    }
     fetchSongs();
     if (t) {
       bibleApi.today(t).then(setVerse).catch(() => null);
@@ -475,7 +484,7 @@ function SongsContent() {
                             📖 {song.scriptureRef} 로 찬양 찾기
                           </button>
                         )}
-                        {token && (
+                        {token && (userRole === 'admin' || song.createdBy === userId) && (
                           <div className="mt-3 flex items-center gap-2">
                             <button
                               onClick={() => openEditModal(song)}
