@@ -58,10 +58,10 @@ export class SongsService {
       : { isPublic: true as const };
 
     if (!search) {
-      return this.prisma.song.findMany({ where, orderBy: { createdAt: 'desc' } });
+      return this.prisma.song.findMany({ where, orderBy: { title: 'asc' } });
     }
 
-    const songs = await this.prisma.song.findMany({ where, orderBy: { createdAt: 'desc' } });
+    const songs = await this.prisma.song.findMany({ where, orderBy: { title: 'asc' } });
 
     const q = search.toLowerCase();
     return songs.filter(

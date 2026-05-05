@@ -121,6 +121,10 @@ function SongsContent() {
   // 카드 expand
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // 페이지네이션
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+
   // 말씀 구절 피커 (모달 내)
   const [showVersePicker, setShowVersePicker] = useState(false);
   const [pickerVerses, setPickerVerses] = useState<BibleVerse[]>([]);
@@ -159,9 +163,13 @@ function SongsContent() {
 
   // 검색 디바운스
   useEffect(() => {
+    setPage(1);
     const t = setTimeout(() => fetchSongs(search || undefined), 400);
     return () => clearTimeout(t);
   }, [search, fetchSongs]);
+
+  // 카테고리 변경 시 페이지 리셋
+  useEffect(() => { setPage(1); }, [selectedCat]);
 
   const handleVerseSearch = () => {
     if (!verse) return;
@@ -285,6 +293,9 @@ function SongsContent() {
   const filteredSongs = selectedCat
     ? songs.filter((s) => getSongCategory(s.title) === selectedCat)
     : songs;
+
+  const totalPages = Math.ceil(filteredSongs.length / PAGE_SIZE);
+  const pagedSongs = filteredSongs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -421,7 +432,7 @@ function SongsContent() {
               </div>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
-              {filteredSongs.map((song) => {
+              {pagedSongs.map((song) => {
                 const isExpanded = expandedId === song.id;
                 return (
                   <div
@@ -506,6 +517,49 @@ function SongsContent() {
                 );
               })}
             </div>
+
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 transition hover:border-violet-300 hover:text-violet-600 disabled:opacity-30 dark:border-gray-700 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
+                >
+                  이전
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                  .reduce<(number | '...')[]>((acc, p, i, arr) => {
+                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('...');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-sm text-gray-400">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p as number)}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                          page === p
+                            ? 'bg-violet-600 text-white'
+                            : 'border border-gray-200 text-gray-600 hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 transition hover:border-violet-300 hover:text-violet-600 disabled:opacity-30 dark:border-gray-700 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
+                >
+                  다음
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
