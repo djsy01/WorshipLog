@@ -140,7 +140,7 @@ export default function MeditationPage() {
   }
 
   async function shareToFeed(m: Meditation) {
-    await communityApi.create(getToken(), { content: buildShareContent(m), isAnonymous: shareAnon, meditationId: m.id });
+    await communityApi.create(getToken(), { content: buildShareContent(m), isAnonymous: shareAnon, meditationId: m.id, category: 'meditation' });
     setSharingId(null);
   }
 
