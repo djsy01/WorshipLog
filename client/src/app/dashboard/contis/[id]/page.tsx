@@ -287,8 +287,16 @@ export default function ContiEditPage() {
   const handlePrint = () => {
     const prev = document.title;
     document.title = conti?.title ?? 'WorshipLog';
+    const onAfterPrint = () => {
+      document.title = prev;
+      // 프린트 후 다크모드 스타일 강제 리페인트
+      document.documentElement.style.display = 'none';
+      document.documentElement.offsetHeight; // reflow trigger
+      document.documentElement.style.display = '';
+      window.removeEventListener('afterprint', onAfterPrint);
+    };
+    window.addEventListener('afterprint', onAfterPrint);
     window.print();
-    document.title = prev;
   };
 
   const filteredSongs = allSongs.filter((s) => {

@@ -24,6 +24,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  background-color: #f9fafb; /* gray-50 — 라이트 오버스크롤 영역 */
+}
+
+html.dark {
+  background-color: #030712; /* gray-950 — 다크 오버스크롤 영역 */
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
 }
