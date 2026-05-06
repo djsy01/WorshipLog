@@ -271,19 +271,6 @@ export default function ContiEditPage() {
     }
   };
 
-  const [copied, setCopied] = useState(false);
-  const handleShareLink = async () => {
-    const url = window.location.href;
-    const title = conti?.title ?? 'WorshipLog 콘티';
-    if (navigator.share) {
-      await navigator.share({ title, url }).catch(() => null);
-    } else {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   const handlePrint = () => {
     const prev = document.title;
     document.title = conti?.title ?? 'WorshipLog';
@@ -584,18 +571,11 @@ export default function ContiEditPage() {
             </h2>
             <div className="print:hidden flex shrink-0 gap-2">
               <button
-                onClick={handleShareLink}
-                disabled={conti.songs.length === 0}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
-              >
-                {copied ? '복사됨!' : '공유하기'}
-              </button>
-              <button
                 onClick={handlePrint}
                 disabled={conti.songs.length === 0}
                 className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
               >
-                PDF 저장
+                공유하기 (PDF)
               </button>
               <button onClick={handleOpenAddSong} className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700">
                 + 찬양 추가

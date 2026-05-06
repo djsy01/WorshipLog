@@ -1,5 +1,4 @@
-import 'dart:io';
-
-final String kApiUrl = Platform.isAndroid
-    ? 'http://10.0.2.2:3000/api'
-    : 'http://localhost:3000/api';
+const String kApiUrl = String.fromEnvironment(
+  'API_URL',
+  defaultValue: 'http://localhost:3000/api',
+);

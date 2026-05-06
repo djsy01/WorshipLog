@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/register_screen.dart';
+import 'features/contis/screens/conti_detail_screen.dart';
+import 'features/shell/screens/shell_screen.dart';
 
 // violet-600 (#7C3AED) — client와 동일한 primary 색상
 const _violet = Color(0xFF7C3AED);
@@ -91,7 +93,7 @@ class WorshipLogApp extends ConsumerWidget {
     final authState = ref.watch(authProvider);
 
     final router = GoRouter(
-      initialLocation: '/login',
+      initialLocation: '/home',
       redirect: (context, state) {
         final isAuth = authState.status == AuthStatus.authenticated;
         final isUnknown = authState.status == AuthStatus.unknown;
@@ -99,20 +101,29 @@ class WorshipLogApp extends ConsumerWidget {
             state.matchedLocation == '/login' ||
             state.matchedLocation == '/register';
 
-        if (isUnknown) return null;
-        if (!isAuth && !isAuthRoute) return '/login';
+        if (isUnknown) return '/splash';
         if (isAuth && isAuthRoute) return '/home';
         return null;
       },
       routes: [
+        GoRoute(
+          path: '/splash',
+          builder: (ctx, s) => const _SplashScreen(),
+        ),
         GoRoute(path: '/login', builder: (ctx, s) => const LoginScreen()),
         GoRoute(path: '/register', builder: (ctx, s) => const RegisterScreen()),
-        GoRoute(path: '/home', builder: (ctx, s) => const HomeScreen()),
+        GoRoute(path: '/home', builder: (ctx, s) => const ShellScreen()),
+        GoRoute(
+          path: '/contis/:id',
+          builder: (ctx, s) =>
+              ContiDetailScreen(contiId: s.pathParameters['id']!),
+        ),
       ],
     );
 
     return MaterialApp.router(
       title: 'WorshipLog',
+      debugShowCheckedModeBanner: false,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
       themeMode: ThemeMode.system,
@@ -121,25 +132,13 @@ class WorshipLogApp extends ConsumerWidget {
   }
 }
 
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'WorshipLog',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
-          ),
-        ],
-      ),
-      body: const Center(child: Text('홈 화면 (준비 중)')),
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
     );
   }
 }

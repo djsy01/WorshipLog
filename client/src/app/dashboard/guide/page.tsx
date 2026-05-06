@@ -49,7 +49,7 @@ const SECTIONS = [
       },
       {
         title: 'PDF 저장 / 인쇄',
-        desc: '[PDF 저장] 버튼을 누르면 브라우저 인쇄 창이 열립니다. "PDF로 저장"을 선택하면 콘티 전체가 A4 PDF로 저장됩니다. 크기 조절은 79%를 권장합니다.',
+        desc: '[PDF 저장] 버튼을 누르면 브라우저 인쇄 창이 열립니다. "PDF로 저장"을 선택하면 콘티 전체가 A4 PDF로 저장됩니다. 모바일인 경우에는 크기 조절은 79%를 권장합니다.',
       },
       {
         title: '팀 공유',
@@ -144,7 +144,10 @@ export default function GuidePage() {
           className="mb-6 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-            <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0" />
+            <path
+              fillRule="evenodd"
+              d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"
+            />
           </svg>
           뒤로가기
         </button>
@@ -167,9 +170,7 @@ export default function GuidePage() {
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{section.icon}</span>
                     <span className="font-bold text-gray-900 dark:text-white">{section.title}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.badge}`}>
-                      {section.steps.length}단계
-                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.badge}`}>{section.steps.length}단계</span>
                   </div>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

@@ -2,8 +2,10 @@ import 'package:dio/dio.dart';
 import 'constants.dart';
 import 'token_storage.dart';
 
+String get _apiBaseUrl => kApiUrl.endsWith('/') ? kApiUrl : '$kApiUrl/';
+
 Dio _createDio() {
-  final dio = Dio(BaseOptions(baseUrl: kApiUrl));
+  final dio = Dio(BaseOptions(baseUrl: _apiBaseUrl));
 
   dio.interceptors.add(
     InterceptorsWrapper(
@@ -19,16 +21,23 @@ Dio _createDio() {
           final refreshToken = await TokenStorage.getRefreshToken();
           if (refreshToken != null) {
             try {
-              final refreshDio = Dio(BaseOptions(baseUrl: kApiUrl));
+              final refreshDio = Dio(BaseOptions(baseUrl: _apiBaseUrl));
               final res = await refreshDio.post(
-                '/auth/refresh',
+                'auth/refresh',
                 options: Options(
                   headers: {'Authorization': 'Bearer $refreshToken'},
                 ),
               );
               final newAccess = res.data['accessToken'] as String;
               final newRefresh = res.data['refreshToken'] as String;
-              await TokenStorage.save(access: newAccess, refresh: newRefresh);
+              final currentUser = await TokenStorage.getUser();
+              if (currentUser != null) {
+                await TokenStorage.save(
+                  access: newAccess,
+                  refresh: newRefresh,
+                  user: currentUser,
+                );
+              }
 
               error.requestOptions.headers['Authorization'] =
                   'Bearer $newAccess';
