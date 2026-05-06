@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../models/conti.dart';
 import '../providers/contis_provider.dart';
+import '../screens/conti_detail_screen.dart';
+import '../../shell/screens/shell_screen.dart';
 
 class ContisScreen extends ConsumerWidget {
   const ContisScreen({super.key});
@@ -97,7 +98,11 @@ class _ContiCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return InkWell(
-      onTap: () => context.push('/contis/${conti.id}'),
+      onTap: () => contisNavKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ContiDetailScreen(contiId: conti.id),
+        ),
+      ),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),

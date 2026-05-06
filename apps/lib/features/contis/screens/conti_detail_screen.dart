@@ -5,12 +5,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../core/api_client.dart';
 import '../models/conti_detail.dart';
 import '../providers/contis_provider.dart';
@@ -520,7 +517,7 @@ class _ContiDetailScreenState extends ConsumerState<ContiDetailScreen> {
                     pw.Container(
                       alignment: pw.Alignment.center, // 악보 가운데 정렬
                       constraints: const pw.BoxConstraints(
-                        maxHeight: 700, // 헤더 높이를 고려하여 A4에 쏙 들어가도록 축소
+                        maxHeight: 650,
                       ), // 거대한 이미지 증발 방지 (A4 세로 한도 제한)
                       width: double.infinity,
                       margin: const pw.EdgeInsets.only(top: 8, bottom: 20),
@@ -536,21 +533,10 @@ class _ContiDetailScreenState extends ConsumerState<ContiDetailScreen> {
         }
       }
 
-      final bytes = await doc.save();
-      final filename =
-          '${conti.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')}.pdf';
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/$filename');
-      await file.writeAsBytes(bytes);
-
       if (!mounted) return;
-      final box = context.findRenderObject() as RenderBox?;
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/pdf')],
-        subject: conti.title,
-        sharePositionOrigin: box != null
-            ? box.localToGlobal(Offset.zero) & box.size
-            : null,
+      await Printing.layoutPdf(
+        onLayout: (_) async => doc.save(),
+        name: conti.title,
       );
     } catch (e) {
       if (mounted) {
@@ -862,26 +848,58 @@ class _SongRowState extends State<_SongRow> {
   }
 
   Future<void> _uploadSheet() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
-      withData: true,
+    if (!mounted) return;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('사진에서 선택 (여러 장 가능)'),
+              onTap: () => Navigator.pop(ctx, 'image'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text('PDF 파일 선택'),
+              onTap: () => Navigator.pop(ctx, 'pdf'),
+            ),
+          ],
+        ),
+      ),
     );
-    if (result == null) return;
-    final pf = result.files.single;
-    final bytes =
-        pf.bytes ??
-        (pf.path != null ? await File(pf.path!).readAsBytes() : null);
-    if (bytes == null) return;
+    if (choice == null) return;
+
+    FilePickerResult? result;
+    if (choice == 'image') {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+        withData: true,
+      );
+    } else {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+    }
+    if (result == null || result.files.isEmpty) return;
 
     setState(() => _uploading = true);
     try {
-      await dio.post(
-        'contis/${widget.contiId}/songs/${widget.item.id}/sheet',
-        data: FormData.fromMap({
-          'file': MultipartFile.fromBytes(bytes, filename: pf.name),
-        }),
-      );
+      for (final pf in result.files) {
+        final bytes = pf.bytes ??
+            (pf.path != null ? await File(pf.path!).readAsBytes() : null);
+        if (bytes == null) continue;
+        await dio.post(
+          'contis/${widget.contiId}/songs/${widget.item.id}/sheet',
+          data: FormData.fromMap({
+            'file': MultipartFile.fromBytes(bytes, filename: pf.name),
+          }),
+        );
+      }
       await widget.onSheetChanged();
       if (mounted) setState(() => _showSheets = true);
     } catch (_) {
@@ -1014,8 +1032,8 @@ class _SongRowState extends State<_SongRow> {
                                     _showSheets
                                         ? '악보 닫기'
                                         : widget.item.sheets.isNotEmpty
-                                        ? '임시악보 ${widget.item.sheets.length}장'
-                                        : '기본악보',
+                                        ? '악보보기 ${widget.item.sheets.length}장'
+                                        : '악보보기',
                                     Colors.green,
                                     Colors.green,
                                   ),
@@ -1027,33 +1045,27 @@ class _SongRowState extends State<_SongRow> {
                                   Colors.grey,
                                   cs.onSurface.withValues(alpha: 0.7),
                                 ),
+                              _uploading
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                      ),
+                                    )
+                                  : GestureDetector(
+                                      onTap: _uploadSheet,
+                                      child: _badge(
+                                        '+ 악보추가',
+                                        Colors.blue,
+                                        Colors.blue,
+                                      ),
+                                    ),
                             ],
                           ),
                         ],
                       ),
                     ),
-
-                    // 악보 추가 버튼
-                    _uploading
-                        ? const SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: Icon(
-                                Icons.add_photo_alternate_outlined,
-                                size: 16,
-                                color: Colors.blue.withValues(alpha: 0.7),
-                              ),
-                              tooltip: '악보 추가',
-                              onPressed: _uploadSheet,
-                            ),
-                          ),
 
                     // 순서 버튼
                     Column(
@@ -1139,7 +1151,7 @@ class _SongRowState extends State<_SongRow> {
 
 // ─── 악보 인라인 뷰어 ─────────────────────────────────────────────────────────
 
-class _SheetViewer extends StatelessWidget {
+class _SheetViewer extends StatefulWidget {
   final List<ContiSheet> sheets;
   final String? defaultSheetUrl;
   final Future<void> Function(String sheetId) onDelete;
@@ -1153,106 +1165,211 @@ class _SheetViewer extends StatelessWidget {
   });
 
   @override
+  State<_SheetViewer> createState() => _SheetViewerState();
+}
+
+class _SheetViewerState extends State<_SheetViewer> {
+  int _currentIndex = 0;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = sheets.isNotEmpty
-        ? sheets.map((s) => (id: s.id, url: s.url, deletable: true)).toList()
-        : defaultSheetUrl != null
-        ? [(id: '', url: defaultSheetUrl!, deletable: false)]
+    final items = widget.sheets.isNotEmpty
+        ? widget.sheets
+            .map((s) => (id: s.id, url: s.url, deletable: true))
+            .toList()
+        : widget.defaultSheetUrl != null
+        ? [(id: '', url: widget.defaultSheetUrl!, deletable: false)]
         : <({String id, String url, bool deletable})>[];
 
     if (items.isEmpty) return const SizedBox.shrink();
 
+    final idx = _currentIndex.clamp(0, items.length - 1);
+    final currentItem = items[idx];
+
     return Column(
-      children: items.map((item) {
-        final isPdf = item.url.toLowerCase().contains('.pdf');
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Divider(height: 1, color: widget.cs.outline.withValues(alpha: 0.2)),
+        // 헤더: 레이블 + 페이지 수 + 삭제
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children: [
+              Text(
+                currentItem.deletable ? '임시악보' : '기본악보',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: widget.cs.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+              if (items.length > 1) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '${idx + 1} / ${items.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: widget.cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              if (currentItem.deletable)
+                TextButton(
+                  onPressed: () {
+                    final id = currentItem.id;
+                    if (_currentIndex > 0 &&
+                        _currentIndex >= items.length - 1) {
+                      _pageController.previousPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                    widget.onDelete(id);
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: const Text('삭제', style: TextStyle(fontSize: 12)),
+                ),
+            ],
+          ),
+        ),
+        // PageView — 가로 스와이프로 악보 넘기기
+        Stack(
+          alignment: Alignment.center,
           children: [
-            Divider(height: 1, color: cs.outline.withValues(alpha: 0.2)),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
-                children: [
-                  Text(
-                    item.deletable ? '임시악보' : '기본악보',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurface.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (item.deletable)
-                    TextButton(
-                      onPressed: () => onDelete(item.id),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+              child: items.length == 1
+                  ? _buildSheetItem(items[0])
+                  : SizedBox(
+                      height: MediaQuery.of(context).size.width * 1.3,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: items.length,
+                        onPageChanged: (i) =>
+                            setState(() => _currentIndex = i),
+                        itemBuilder: (_, i) => Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: _buildSheetItem(items[i]),
+                        ),
                       ),
-                      child: const Text('삭제', style: TextStyle(fontSize: 12)),
                     ),
-                ],
-              ),
             ),
-            if (isPdf)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // 너비를 기준으로 A4 비율(1 : 1.414)에 맞춰 높이를 동적으로 넉넉하게 설정
-                      return Container(
-                        height: constraints.maxWidth * 1.414,
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: cs.outline.withValues(alpha: 0.2),
-                          ),
-                          color: cs.surfaceContainerHighest.withValues(
-                            alpha: 0.3,
-                          ),
-                        ),
-                        child: SfPdfViewer.network(
-                          item.url,
-                          canShowScrollHead: false, // 상단 스크롤 헤더 숨김 (깔끔한 UI)
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    item.url,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return const SizedBox(
-                        height: 100,
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    },
-                    errorBuilder: (context, error, stack) => Container(
-                      height: 60,
-                      alignment: Alignment.center,
-                      child: Text(
-                        '이미지를 불러올 수 없습니다.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurface.withValues(alpha: 0.4),
-                        ),
-                      ),
-                    ),
+            // 좌우 화살표 버튼 오버레이
+            if (items.length > 1) ...[
+              Positioned(
+                left: 0,
+                child: _NavArrow(
+                  icon: Icons.chevron_left,
+                  enabled: idx > 0,
+                  onTap: () => _pageController.previousPage(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
                   ),
                 ),
               ),
+              Positioned(
+                right: 0,
+                child: _NavArrow(
+                  icon: Icons.chevron_right,
+                  enabled: idx < items.length - 1,
+                  onTap: () => _pageController.nextPage(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                  ),
+                ),
+              ),
+            ],
           ],
-        );
-      }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSheetItem(({String id, String url, bool deletable}) item) {
+    final isPdf = item.url.toLowerCase().contains('.pdf');
+    if (isPdf) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: _InlinePdfPreview(
+          url: item.url,
+          title: item.deletable ? '임시악보' : '기본악보',
+          cs: widget.cs,
+        ),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        item.url,
+        fit: BoxFit.contain,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        },
+        errorBuilder: (context, error, stack) => Container(
+          height: 60,
+          alignment: Alignment.center,
+          child: Text(
+            '이미지를 불러올 수 없습니다.',
+            style: TextStyle(
+              fontSize: 12,
+              color: widget.cs.onSurface.withValues(alpha: 0.4),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavArrow extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _NavArrow({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: enabled ? 0.35 : 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          icon,
+          color: Colors.white.withValues(alpha: enabled ? 1.0 : 0.3),
+          size: 22,
+        ),
+      ),
     );
   }
 }
@@ -1278,6 +1395,7 @@ class _InlinePdfPreviewState extends State<_InlinePdfPreview> {
   List<Uint8List> _images = [];
   bool _loading = true;
   String? _error;
+  int _currentPage = 0;
 
   @override
   void initState() {
@@ -1384,84 +1502,103 @@ class _InlinePdfPreviewState extends State<_InlinePdfPreview> {
       );
     }
 
-    return Stack(
-      children: [
-        // 모든 악보 이미지를 세로로 쫙 펼쳐서 나열 (스크롤 충돌 완벽 해소)
-        Column(
-          children: _images.map((img) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: widget.cs.outline.withValues(alpha: 0.2),
-                ),
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.memory(
-                  img,
-                  fit: BoxFit.contain,
-                  width: double.infinity,
-                ),
-              ),
-            );
-          }).toList(),
-        ),
+    final pageController = PageController(initialPage: _currentPage);
 
-        // 전체화면 보기 버튼
-        Positioned(
-          bottom: 16,
-          right: 8,
-          child: GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                    appBar: AppBar(
-                      title: Text(
-                        widget.title,
-                        style: const TextStyle(fontSize: 16),
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // PageView — 가로 스와이프로 PDF 페이지 넘기기
+        _images.length == 1
+            ? Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: widget.cs.outline.withValues(alpha: 0.2),
+                  ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(
+                    _images[0],
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                  ),
+                ),
+              )
+            : AspectRatio(
+                aspectRatio: 1 / 1.414,
+                child: PageView.builder(
+                  controller: pageController,
+                  itemCount: _images.length,
+                  onPageChanged: (i) => setState(() => _currentPage = i),
+                  itemBuilder: (_, i) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: widget.cs.outline.withValues(alpha: 0.2),
+                        ),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(
+                          _images[i],
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                        ),
                       ),
                     ),
-                    body: SfPdfViewer.network(widget.url),
                   ),
                 ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.fullscreen, color: Colors.white, size: 18),
-                  SizedBox(width: 6),
-                  Text(
-                    '전체화면',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+        // 좌우 화살표
+        if (_images.length > 1) ...[
+          Positioned(
+            left: 0,
+            child: _NavArrow(
+              icon: Icons.chevron_left,
+              enabled: _currentPage > 0,
+              onTap: () => pageController.previousPage(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
               ),
             ),
           ),
-        ),
+          Positioned(
+            right: 0,
+            child: _NavArrow(
+              icon: Icons.chevron_right,
+              enabled: _currentPage < _images.length - 1,
+              onTap: () => pageController.nextPage(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+              ),
+            ),
+          ),
+          // 페이지 카운터
+          Positioned(
+            bottom: 8,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_currentPage + 1} / ${_images.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

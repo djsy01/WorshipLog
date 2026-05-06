@@ -277,16 +277,20 @@ export default function ContiEditPage() {
     const root = document.documentElement;
     const isDark = root.classList.contains('dark');
 
-    window.addEventListener('afterprint', () => {
-      document.title = prev;
-      if (isDark) {
-        // 인라인 스타일로 즉시 다크 배경 고정 → 흰 프레임 차단
-        root.style.backgroundColor = '#030712';
-        requestAnimationFrame(() => {
-          root.style.backgroundColor = '';
-        });
-      }
-    }, { once: true });
+    window.addEventListener(
+      'afterprint',
+      () => {
+        document.title = prev;
+        if (isDark) {
+          // 인라인 스타일로 즉시 다크 배경 고정 → 흰 프레임 차단
+          root.style.backgroundColor = '#030712';
+          requestAnimationFrame(() => {
+            root.style.backgroundColor = '';
+          });
+        }
+      },
+      { once: true },
+    );
 
     window.print();
   };
@@ -331,13 +335,9 @@ export default function ContiEditPage() {
       {/* 프린트 전용 레이아웃 */}
       <div className="hidden print:block print-content" style={{ fontFamily: 'Arial, sans-serif', color: '#111' }}>
         {conti.songs.map((cs, index) => {
-          const printSheets = cs.sheets.length > 0
-            ? cs.sheets
-            : cs.song.sheetMusicUrl
-              ? [{ id: 'default', url: cs.song.sheetMusicUrl }]
-              : [];
+          const printSheets = cs.sheets.length > 0 ? cs.sheets : cs.song.sheetMusicUrl ? [{ id: 'default', url: cs.song.sheetMusicUrl }] : [];
           const hasPdfSheet = printSheets.some((s) => s.url.toLowerCase().includes('.pdf'));
-          const colCount = cs.song.artist ? 5 : 4;
+          const colCount = cs.song.artist ? 7 : 6;
           return (
             <div key={cs.id} style={{ pageBreakBefore: index === 0 ? 'auto' : 'always', padding: '8px 24px 16px' }}>
               {/* 콘티 제목 & 날짜 (모든 곡에 표시) */}
@@ -354,7 +354,9 @@ export default function ContiEditPage() {
                   <colgroup>
                     <col style={{ width: '44px' }} />
                     <col />
-                    {cs.song.artist && <col style={{ width: '130px' }} />}
+                    {cs.song.artist && <col style={{ width: '100px' }} />}
+                    <col style={{ width: '38px' }} />
+                    <col style={{ width: '52px' }} />
                     <col style={{ width: '50px' }} />
                     <col style={{ width: '76px' }} />
                   </colgroup>
@@ -379,19 +381,25 @@ export default function ContiEditPage() {
                         <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', color: '#555', overflow: 'hidden' }}>{cs.song.artist}</td>
                       )}
                       <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', fontWeight: 'bold', color: '#7c3aed', textAlign: 'center' }}>
+                        Key
+                      </td>
+                      <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', textAlign: 'center', color: '#333' }}>
+                        {cs.key ?? cs.song.defaultKey ?? '-'}
+                      </td>
+                      <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', fontWeight: 'bold', color: '#7c3aed', textAlign: 'center' }}>
                         tempo
                       </td>
                       <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', textAlign: 'center', color: '#333' }}>
                         {(cs.tempo ?? cs.song.tempo) ? `${cs.tempo ?? cs.song.tempo} BPM` : '-'}
                       </td>
                     </tr>
-                    {(cs.note || cs.key) && (
+                    {cs.note && (
                       <tr>
                         <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', fontWeight: 'bold', color: '#7c3aed', textAlign: 'center' }}>
                           송폼
                         </td>
                         <td colSpan={colCount - 1} style={{ border: '1px solid #d1d5db', padding: '4px 8px', color: '#333' }}>
-                          {[cs.key && `Key: ${cs.key}`, cs.note].filter(Boolean).join('  |  ')}
+                          {cs.note}
                         </td>
                       </tr>
                     )}
@@ -407,7 +415,7 @@ export default function ContiEditPage() {
                     songHeader={{
                       num: index + 1,
                       title: cs.song.title,
-                      key: cs.key ?? undefined,
+                      key: cs.key ?? cs.song.defaultKey ?? undefined,
                       artist: cs.song.artist ?? undefined,
                       note: cs.note ?? undefined,
                       tempo: cs.tempo ?? cs.song.tempo ?? undefined,
@@ -606,9 +614,9 @@ export default function ContiEditPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-sm font-medium text-gray-900 dark:text-white sm:text-base">{cs.song.title}</span>
-                          {cs.key && (
+                          {(cs.key ?? cs.song.defaultKey) && (
                             <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                              {cs.key}
+                              {cs.key ?? cs.song.defaultKey}
                             </span>
                           )}
                           {(cs.tempo ?? cs.song.tempo) != null && (
@@ -621,7 +629,7 @@ export default function ContiEditPage() {
                               onClick={() => setExpandedSheetId(sheetOpen ? null : cs.id)}
                               className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
                             >
-                              {sheetOpen ? '악보 닫기' : cs.sheets.length > 0 ? `임시악보 ${cs.sheets.length}장` : '기본악보'}
+                              {sheetOpen ? '악보 닫기' : cs.sheets.length > 0 ? `악보보기 ${cs.sheets.length}장` : '악보보기'}
                             </button>
                           )}
                           <button
@@ -697,7 +705,7 @@ export default function ContiEditPage() {
                             return (
                               <div key={sheet.id} className={si > 0 ? 'border-t border-gray-100 dark:border-gray-800' : ''}>
                                 <div className="print:hidden flex items-center justify-between px-4 py-1.5">
-                                  <span className="text-xs text-gray-400">임시악보 {si + 1}장</span>
+                                  <span className="text-xs text-gray-400">악보보기 {si + 1}장</span>
                                   <button
                                     onClick={() => handleSheetDelete(cs.id, sheet.id)}
                                     className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -706,7 +714,11 @@ export default function ContiEditPage() {
                                   </button>
                                 </div>
                                 {isPdf ? (
-                                  <iframe src={sheet.url} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 악보 ${si + 1}`} />
+                                  <iframe
+                                    src={sheet.url}
+                                    className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]"
+                                    title={`${cs.song.title} 악보 ${si + 1}`}
+                                  />
                                 ) : (
                                   <div className="flex justify-center p-4">
                                     <img src={sheet.url} alt={`${cs.song.title} 악보 ${si + 1}`} className="max-w-full rounded-lg object-contain" />
@@ -718,13 +730,17 @@ export default function ContiEditPage() {
                         ) : cs.song.sheetMusicUrl ? (
                           <div>
                             <div className="print:hidden flex items-center px-4 py-1.5">
-                              <span className="text-xs text-gray-400">기본악보</span>
+                              <span className="text-xs text-gray-400">악보보기</span>
                             </div>
                             {cs.song.sheetMusicUrl.toLowerCase().includes('.pdf') ? (
-                              <iframe src={cs.song.sheetMusicUrl} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 기본악보`} />
+                              <iframe
+                                src={cs.song.sheetMusicUrl}
+                                className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]"
+                                title={`${cs.song.title} 악보보기`}
+                              />
                             ) : (
                               <div className="flex justify-center p-4">
-                                <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 기본악보`} className="max-w-full rounded-lg object-contain" />
+                                <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 악보보기`} className="max-w-full rounded-lg object-contain" />
                               </div>
                             )}
                           </div>
@@ -818,7 +834,7 @@ export default function ContiEditPage() {
               {/* 선택된 곡 - key/note 설정 */}
               {selectedSong && (
                 <div className="mt-4 rounded-xl bg-violet-50 p-4 dark:bg-violet-900/20">
-                  <p className="mb-3 text-sm font-semibold text-violet-700 dark:text-violet-400">"{selectedSong.title}" 설정</p>
+                  <p className="mb-3 text-sm font-semibold text-violet-700 dark:text-violet-400">`{selectedSong.title}`` 설정</p>
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <label className="mb-1 block text-xs text-gray-500">이 콘티에서 사용할 키</label>

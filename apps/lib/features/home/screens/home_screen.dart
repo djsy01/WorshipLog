@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../contis/screens/conti_detail_screen.dart';
+import '../../shell/screens/shell_screen.dart';
 import '../providers/home_provider.dart';
 import '../models/conti_summary.dart';
 
@@ -328,7 +330,11 @@ class _ContiItem extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return InkWell(
-      onTap: () {},
+      onTap: () => homeNavKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ContiDetailScreen(contiId: conti.id),
+        ),
+      ),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
