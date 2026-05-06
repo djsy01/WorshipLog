@@ -56,15 +56,15 @@
 
 ## 기술 스택
 
-| 항목         | 기술                                        | 문서                         |
-| ------------ | ------------------------------------------- | ---------------------------- |
-| 프론트엔드   | Next.js 15 + TypeScript + Tailwind CSS v4   | [Client](./client/README.md) |
-| 백엔드       | NestJS + TypeScript + Prisma + Redis        | [Server](./server/README.md) |
-| 데이터베이스 | PostgreSQL (Supabase) + Redis (Upstash)     |                              |
-| 어플리케이션 | Flutter (Android 우선)                      |                              |
-| 배포         | Vercel (프론트) + Render/Railway (백엔드)   |                              |
-| 외부 API     | Spotify Web API (찬양 검색 자동완성)        |                              |
-| 기타         | Supabase Storage, Nodemailer, QR코드, jsPDF |                              |
+| 항목         | 기술                                        | 문서                            |
+| ------------ | ------------------------------------------- | ------------------------------- |
+| 프론트엔드   | Next.js 15 + TypeScript + Tailwind CSS v4   | [Client](./client/README.md)    |
+| 백엔드       | NestJS + TypeScript + Prisma + Redis        | [Server](./server/README.md)    |
+| 데이터베이스 | PostgreSQL (Supabase) + Redis (Upstash)     |                                 |
+| 어플리케이션 | Flutter (Android 우선)                      | [Application](./apps/README.md) |
+| 배포         | Vercel (프론트) + Oracle Cloud(백엔드)      |                                 |
+| 외부 API     | Spotify Web API (찬양 검색 자동완성)        |                                 |
+| 기타         | Supabase Storage, Nodemailer, QR코드, jsPDF |                                 |
 
 ---
 
@@ -86,13 +86,13 @@ WorshipLog/
 
 ## 개발 현황
 
-| Phase   | 내용                                                                         | 상태    |
-| ------- | ---------------------------------------------------------------------------- | ------- |
-| Phase 1 | DB 스키마 + NestJS 초기화 + 인증 API                                         | ✅ 완료 |
-| Phase 2 | Next.js 초기화 + 라우팅 + 로그인/회원가입 UI + 이메일 인증                   | ✅ 완료 |
-| Phase 2 | 찬양 CRUD + Spotify 연동 + 오늘의 말씀 + 카테고리·정렬·페이지네이션          | ✅ 완료 |
+| Phase   | 내용                                                                          | 상태    |
+| ------- | ----------------------------------------------------------------------------- | ------- |
+| Phase 1 | DB 스키마 + NestJS 초기화 + 인증 API                                          | ✅ 완료 |
+| Phase 2 | Next.js 초기화 + 라우팅 + 로그인/회원가입 UI + 이메일 인증                    | ✅ 완료 |
+| Phase 2 | 찬양 CRUD + Spotify 연동 + 오늘의 말씀 + 카테고리·정렬·페이지네이션           | ✅ 완료 |
 | Phase 2 | 콘티 생성/편집 + 악보 이중 구조 + 인라인 뷰어 + PDF 출력/공유 + 모바일 최적화 | ✅ 완료 |
-| Phase 3 | 팀스페이스 — 팀 생성/초대/관리 + 팀별 채팅 + 팀 콘티 공유                   | ✅ 완료 |
+| Phase 3 | 팀스페이스 — 팀 생성/초대/관리 + 팀별 채팅 + 팀 콘티 공유                     | ✅ 완료 |
 | Phase 3 | 말씀 묵상 + 사용 가이드                                                       | ✅ 완료 |
 | Phase 3 | 히스토리                                                                      | 예정    |
 | Phase 4 | Flutter 앱 + 최종 배포                                                        | 예정    |

@@ -1,0 +1,49 @@
+name: worship_log
+description: 'WorshipLog mobile app'
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  dio: ^5.7.0
+  flutter_secure_storage: ^9.2.2
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.2
+  flutter_svg: ^2.0.10+1
+  file_picker: ^10.3.8
+  url_launcher: ^6.3.2
+  pdf: ^3.11.0
+  share_plus: ^10.1.2
+  path_provider: ^2.1.4
+  printing: ^5.14.3
+  syncfusion_flutter_pdfviewer: ^33.2.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: GabiaSolmee
+      fonts:
+        - asset: assets/fonts/gabia_solmee.ttf
+
+flutter_launcher_icons:
+  image_path: 'assets/images/logo.png'
+  image_path_ios: 'assets/images/logo.png'
+  ios: true
+  android: true
+  remove_alpha_ios: true
