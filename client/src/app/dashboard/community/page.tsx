@@ -75,7 +75,8 @@ function Comments({ post, token }: { post: Post; token: string }) {
   const [anon, setAnon] = useState(true);
 
   useEffect(() => {
-    communityApi.getComments(token, post.id)
+    communityApi
+      .getComments(token, post.id)
       .then(setComments)
       .catch(() => null)
       .finally(() => setLoading(false));
@@ -111,7 +112,9 @@ function Comments({ post, token }: { post: Post; token: string }) {
                 <span className="ml-2 text-xs text-gray-400">{timeAgo(c.createdAt)}</span>
               </div>
               {c.isMine && (
-                <button onClick={() => remove(c.id)} className="shrink-0 text-xs text-red-400 hover:text-red-600">삭제</button>
+                <button onClick={() => remove(c.id)} className="shrink-0 text-xs text-red-400 hover:text-red-600">
+                  삭제
+                </button>
               )}
             </div>
           ))}
@@ -131,10 +134,7 @@ function Comments({ post, token }: { post: Post; token: string }) {
             <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded" />
             익명
           </label>
-          <button
-            onClick={submit}
-            className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-xs text-white hover:bg-violet-700 transition"
-          >
+          <button onClick={submit} className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-xs text-white hover:bg-violet-700 transition">
             등록
           </button>
         </div>
@@ -144,13 +144,7 @@ function Comments({ post, token }: { post: Post; token: string }) {
 }
 
 // ─── 사이드바 내용 ─────────────────────────────────────────────────────────────
-function SidebarContent({
-  selected,
-  onSelect,
-}: {
-  selected: string;
-  onSelect: (key: string) => void;
-}) {
+function SidebarContent({ selected, onSelect }: { selected: string; onSelect: (key: string) => void }) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     general: true,
     instrument: true,
@@ -174,7 +168,10 @@ function SidebarContent({
               viewBox="0 0 16 16"
               className={`transition-transform ${openSections[section.key] ? '' : '-rotate-90'}`}
             >
-              <path fillRule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708" />
+              <path
+                fillRule="evenodd"
+                d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"
+              />
             </svg>
           </button>
           {openSections[section.key] && (
@@ -278,12 +275,12 @@ function WriteForm({
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={onCancel}
-          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
-        >
+        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-            <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0" />
+            <path
+              fillRule="evenodd"
+              d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"
+            />
           </svg>
         </button>
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">글쓰기</h2>
@@ -298,7 +295,9 @@ function WriteForm({
             className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             {allCategories.map((c) => (
-              <option key={c.key} value={c.key}>{c.label}</option>
+              <option key={c.key} value={c.key}>
+                {c.label}
+              </option>
             ))}
           </select>
         </div>
@@ -329,7 +328,7 @@ function WriteForm({
               ) : (
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/20">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" className="text-violet-500">
-                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1L14 4.5z"/>
+                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1L14 4.5z" />
                   </svg>
                 </div>
               )}
@@ -339,7 +338,7 @@ function WriteForm({
               </div>
               <button onClick={removeFile} className="shrink-0 text-gray-400 hover:text-red-500 transition">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708" />
                 </svg>
               </button>
             </div>
@@ -359,8 +358,8 @@ function WriteForm({
               className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"/>
-                <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2M14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1M2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1z"/>
+                <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3" />
+                <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2M14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1M2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1z" />
               </svg>
               파일 첨부
             </button>
@@ -372,14 +371,9 @@ function WriteForm({
               className="hidden"
             />
           </div>
-          {fileError && (
-            <p className="w-full px-5 pb-2 text-xs text-red-500">{fileError}</p>
-          )}
+          {fileError && <p className="w-full px-5 pb-2 text-xs text-red-500">{fileError}</p>}
           <div className="flex items-center gap-2">
-            <button
-              onClick={onCancel}
-              className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition"
-            >
+            <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition">
               취소
             </button>
             <button
@@ -397,17 +391,7 @@ function WriteForm({
 }
 
 // ─── 글 상세 ──────────────────────────────────────────────────────────────────
-function PostDetail({
-  post,
-  token,
-  onBack,
-  onDelete,
-}: {
-  post: Post;
-  token: string;
-  onBack: () => void;
-  onDelete: (id: string) => void;
-}) {
+function PostDetail({ post, token, onBack, onDelete }: { post: Post; token: string; onBack: () => void; onDelete: (id: string) => void }) {
   async function remove() {
     if (!confirm('게시글을 삭제할까요?')) return;
     await communityApi.remove(token, post.id);
@@ -421,7 +405,10 @@ function PostDetail({
         className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 transition mb-5"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-          <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0" />
+          <path
+            fillRule="evenodd"
+            d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"
+          />
         </svg>
         목록으로
       </button>
@@ -432,13 +419,13 @@ function PostDetail({
             {getCategoryLabel(post.category)}
           </span>
           {post.isMine && (
-            <button onClick={remove} className="text-xs text-red-400 hover:text-red-600 transition">삭제</button>
+            <button onClick={remove} className="text-xs text-red-400 hover:text-red-600 transition">
+              삭제
+            </button>
           )}
         </div>
 
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-snug mt-3">
-          {post.title ?? post.content.slice(0, 50)}
-        </h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-snug mt-3">{post.title ?? post.content.slice(0, 50)}</h1>
         <div className="flex items-center gap-2 mt-2 mb-5 text-xs text-gray-400">
           <span className="font-medium text-gray-600 dark:text-gray-400">{post.author}</span>
           <span>·</span>
@@ -468,7 +455,7 @@ function PostDetail({
                   className="inline-flex items-center gap-2 rounded-lg border border-violet-200 dark:border-violet-800 px-4 py-2 text-sm text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M4 0h5.293A1 1 0 0 1 10 .293L13.707 4a1 1 0 0 1 .293.707V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2m5.5 1.5v2a1 1 0 0 0 1 1h2z"/>
+                    <path d="M4 0h5.293A1 1 0 0 1 10 .293L13.707 4a1 1 0 0 1 .293.707V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2m5.5 1.5v2a1 1 0 0 0 1 1h2z" />
                   </svg>
                   첨부파일 보기
                 </a>
@@ -524,7 +511,8 @@ function PostList({
         <div className="py-20 text-center text-sm text-gray-400">불러오는 중...</div>
       ) : posts.length === 0 ? (
         <div className="py-20 text-center text-sm text-gray-400">
-          아직 게시글이 없어요.<br />첫 번째 글을 남겨보세요.
+          아직 게시글이 없어요.
+          <br />첫 번째 글을 남겨보세요.
         </div>
       ) : (
         <>
@@ -536,9 +524,7 @@ function PostList({
                 className="w-full text-left px-5 py-4 transition hover:bg-gray-50 dark:hover:bg-gray-800/60"
               >
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                    {post.title ?? post.content.slice(0, 60)}
-                  </p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{post.title ?? post.content.slice(0, 60)}</p>
                   <div className="shrink-0 flex items-center gap-3 text-xs text-gray-400">
                     <span className="flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16">
@@ -549,9 +535,7 @@ function PostList({
                     <span>{timeAgo(post.createdAt)}</span>
                   </div>
                 </div>
-                {post.title && post.content && (
-                  <p className="mt-1 text-xs text-gray-400 truncate">{post.content.slice(0, 80)}</p>
-                )}
+                {post.title && post.content && <p className="mt-1 text-xs text-gray-400 truncate">{post.content.slice(0, 80)}</p>}
                 <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-500">{post.author}</p>
               </button>
             ))}
@@ -621,12 +605,15 @@ export default function CommunityPage() {
     setView('list');
     setSelectedPost(null);
     setLoading(true);
-    communityApi.list(getToken(), category).then((data) => {
-      if (data.length < 20) setHasMore(false);
-      setPosts(data);
-      setCursor(data.length > 0 ? data[data.length - 1].id : undefined);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    communityApi
+      .list(getToken(), category)
+      .then((data) => {
+        if (data.length < 20) setHasMore(false);
+        setPosts(data);
+        setCursor(data.length > 0 ? data[data.length - 1].id : undefined);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [category, reloadTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSelectCategory(key: string) {
@@ -675,63 +662,60 @@ export default function CommunityPage() {
           className="mb-6 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-            <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0" />
+            <path
+              fillRule="evenodd"
+              d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"
+            />
           </svg>
           대시보드로 돌아가기
         </button>
 
         <div className="flex gap-6">
-        {/* ─ 데스크톱 사이드바 ─ */}
-        <aside className="hidden md:block w-52 shrink-0 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 self-start sticky top-20">
-          <SidebarContent selected={category} onSelect={handleSelectCategory} />
-        </aside>
+          {/* ─ 데스크톱 사이드바 ─ */}
+          <aside className="hidden md:block w-52 shrink-0 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 self-start sticky top-20">
+            <SidebarContent selected={category} onSelect={handleSelectCategory} />
+          </aside>
 
-        {/* ─ 메인 콘텐츠 ─ */}
-        <main className="flex-1 min-w-0">
-          {/* 모바일 상단 바 */}
-          <div className="flex items-center gap-3 mb-5 md:hidden">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="rounded-lg border border-gray-200 dark:border-gray-700 p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path fillRule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5" />
-              </svg>
-            </button>
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{getCategoryLabel(category)}</span>
-          </div>
+          {/* ─ 메인 콘텐츠 ─ */}
+          <main className="flex-1 min-w-0">
+            {/* 모바일 상단 바 */}
+            <div className="flex items-center gap-3 mb-5 md:hidden">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path
+                    fillRule="evenodd"
+                    d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"
+                  />
+                </svg>
+              </button>
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{getCategoryLabel(category)}</span>
+            </div>
 
-          {view === 'list' && (
-            <PostList
-              category={category}
-              token={getToken()}
-              posts={posts}
-              hasMore={hasMore}
-              loading={loading}
-              onLoadMore={() => loadPosts(false)}
-              onSelect={(post) => { setSelectedPost(post); setView('detail'); }}
-              onWrite={() => setView('write')}
-            />
-          )}
+            {view === 'list' && (
+              <PostList
+                category={category}
+                token={getToken()}
+                posts={posts}
+                hasMore={hasMore}
+                loading={loading}
+                onLoadMore={() => loadPosts(false)}
+                onSelect={(post) => {
+                  setSelectedPost(post);
+                  setView('detail');
+                }}
+                onWrite={() => setView('write')}
+              />
+            )}
 
-          {view === 'write' && (
-            <WriteForm
-              category={category}
-              token={getToken()}
-              onSubmit={handleWriteSubmit}
-              onCancel={() => setView('list')}
-            />
-          )}
+            {view === 'write' && <WriteForm category={category} token={getToken()} onSubmit={handleWriteSubmit} onCancel={() => setView('list')} />}
 
-          {view === 'detail' && selectedPost && (
-            <PostDetail
-              post={selectedPost}
-              token={getToken()}
-              onBack={() => setView('list')}
-              onDelete={handleDeletePost}
-            />
-          )}
-        </main>
+            {view === 'detail' && selectedPost && (
+              <PostDetail post={selectedPost} token={getToken()} onBack={() => setView('list')} onDelete={handleDeletePost} />
+            )}
+          </main>
         </div>
       </div>
     </div>

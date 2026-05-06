@@ -1,0 +1,33 @@
+name: Flutter Build & Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**' # apps 폴더 내 코드가 수정될 때만 작동
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        working-directory: apps # apps 폴더로 이동
+        run: flutter pub get
+
+      - name: Build Android App Bundle
+        working-directory: apps # apps 폴더로 이동
+        run: flutter build appbundle --release
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-release
+          path: apps/build/app/outputs/bundle/release/app-release.aab
