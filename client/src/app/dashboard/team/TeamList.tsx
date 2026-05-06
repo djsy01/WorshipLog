@@ -166,7 +166,7 @@ export function TeamList({
               {team.members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 py-1">
                   <div className="h-2 w-2 rounded-full bg-violet-500" />
-                  <span className="text-gray-700 dark:text-gray-300">{m.name}</span>
+                  <span className="text-gray-700 dark:text-gray-300">{m.user.name}</span>
                 </div>
               ))}
             </div>

@@ -2,35 +2,27 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { bibleApi, communityApi, teamsApi, Meditation, Team } from '@/lib/api';
+import { bibleApi, teamsApi, type Meditation, type Team } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import ConfirmModal from '@/components/ConfirmModal';
 import { MonthSidebar } from './MonthSidebar';
-
-function formatRef(m: Meditation) {
-  return `${m.book} ${m.chapter}:${m.verse}`;
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
-}
+import MeditationCard from './MeditationCard';
 
 function toMonthKey(iso: string) {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
+
+function formatMonthLabel(monthKey: string) {
+  const [year, month] = monthKey.split('-');
+  return `${year}년 ${parseInt(month)}월`;
+}
+
 export default function MeditationPage() {
   const router = useRouter();
   const [meditations, setMeditations] = useState<Meditation[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [noteInput, setNoteInput] = useState('');
-  const [sharingId, setSharingId] = useState<string | null>(null);
-  const [shareTab, setShareTab] = useState<'community' | 'team'>('community');
-  const [shareAnon, setShareAnon] = useState(true);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -52,18 +44,8 @@ export default function MeditationPage() {
         }
       })
       .catch(() => null);
-    teamsApi
-      .list(token)
-      .then((data) => {
-        setTeams(data);
-        if (data.length > 0) setSelectedTeamId(data[0].id);
-      })
-      .catch(() => null);
+    teamsApi.list(token).then(setTeams).catch(() => null);
   }, [router]);
-
-  function getToken() {
-    return localStorage.getItem('accessToken') ?? '';
-  }
 
   // 연월 목록 (최신순)
   const months = useMemo(() => {
@@ -87,26 +69,8 @@ export default function MeditationPage() {
     return meditations.filter((m) => toMonthKey(m.createdAt) === selectedMonth);
   }, [meditations, selectedMonth]);
 
-  async function saveNote(m: Meditation) {
-    await bibleApi.updateNote(getToken(), m.id, noteInput);
-    setMeditations((prev) => prev.map((x) => (x.id === m.id ? { ...x, note: noteInput } : x)));
-    setEditingId(null);
-  }
-
-  function buildShareContent(m: Meditation) {
-    const verse = `📖 ${formatRef(m)}\n"${m.content}"`;
-    return m.note ? `${verse}\n\n✏️ 묵상\n${m.note}` : verse;
-  }
-
-  async function shareToFeed(m: Meditation) {
-    await communityApi.create(getToken(), { content: buildShareContent(m), isAnonymous: shareAnon, meditationId: m.id, category: 'meditation' });
-    setSharingId(null);
-  }
-
-  async function shareToTeam(m: Meditation) {
-    if (!selectedTeamId) return;
-    await teamsApi.createPost(getToken(), selectedTeamId, { content: buildShareContent(m) });
-    setSharingId(null);
+  function handleNoteUpdate(id: string, note: string) {
+    setMeditations((prev) => prev.map((x) => (x.id === id ? { ...x, note } : x)));
   }
 
   return (
@@ -237,185 +201,9 @@ export default function MeditationPage() {
               </div>
             )}
 
-            {/* 묵상 카드 목록 */}
             <div className="flex flex-col gap-5">
               {filtered.map((m) => (
-                <div
-                  key={m.id}
-                  className="group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:ring-gray-800"
-                >
-                  <div className="absolute left-0 top-0 h-full w-1 bg-violet-400 dark:bg-violet-600" />
-                  <div className="px-6 py-5 pl-7">
-                    {/* 날짜 + 버튼 */}
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(m.createdAt)}</span>
-                      <div className="flex gap-1 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
-                        <button
-                          onClick={() => {
-                            setEditingId(m.id);
-                            setNoteInput(m.note ?? '');
-                          }}
-                          className="rounded-lg px-2.5 py-1 text-xs text-violet-500 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-900/30 transition"
-                        >
-                          메모
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSharingId(m.id);
-                            setShareAnon(true);
-                            setShareTab('community');
-                          }}
-                          className="rounded-lg px-2.5 py-1 text-xs text-indigo-500 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30 transition"
-                        >
-                          공유
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* 말씀 */}
-                    <div className="mb-1 flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-violet-400 dark:text-violet-500">말씀</span>
-                      <span className="text-xs font-semibold text-violet-500 dark:text-violet-400">· {formatRef(m)}</span>
-                    </div>
-                    <div className="relative mb-4">
-                      <span className="absolute -top-2 -left-1 select-none text-4xl leading-none text-violet-200 dark:text-violet-800">"</span>
-                      <p className="font-lovespring pl-5 text-base leading-loose text-gray-800 dark:text-gray-200">{m.content}</p>
-                    </div>
-
-                    {/* 묵상 메모 */}
-                    {m.note && editingId !== m.id && (
-                      <>
-                        <div className="mb-1 flex items-center gap-1.5 border-t border-gray-100 pt-3 dark:border-gray-800">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="11"
-                            height="11"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            className="text-amber-400"
-                            strokeWidth={2.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"
-                            />
-                          </svg>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 dark:text-amber-400">묵상</span>
-                        </div>
-                        <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{m.note}</p>
-                      </>
-                    )}
-
-                    {/* 메모 편집 */}
-                    {editingId === m.id && (
-                      <div className="mt-4 flex flex-col gap-2">
-                        <textarea
-                          value={noteInput}
-                          onChange={(e) => setNoteInput(e.target.value)}
-                          placeholder="이 말씀으로 묵상한 내용을 적어보세요..."
-                          className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400"
-                          rows={3}
-                          autoFocus
-                        />
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">
-                            취소
-                          </button>
-                          <button
-                            onClick={() => saveNote(m)}
-                            className="text-xs bg-violet-600 text-white rounded-lg px-4 py-1.5 hover:bg-violet-700 transition"
-                          >
-                            저장
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 공유 패널 */}
-                    {sharingId === m.id && (
-                      <div className="mt-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 overflow-hidden">
-                        <div className="flex border-b border-indigo-200 dark:border-indigo-800">
-                          <button
-                            onClick={() => setShareTab('community')}
-                            className={`flex-1 py-2 text-xs font-semibold transition ${shareTab === 'community' ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
-                          >
-                            커뮤니티
-                          </button>
-                          <button
-                            onClick={() => setShareTab('team')}
-                            className={`flex-1 py-2 text-xs font-semibold transition ${shareTab === 'team' ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
-                          >
-                            팀스페이스
-                          </button>
-                        </div>
-                        <div className="flex flex-col gap-3 p-3">
-                          <div className="rounded-lg bg-white dark:bg-gray-900 px-3 py-2.5 text-xs leading-relaxed space-y-1.5">
-                            <p className="font-semibold text-violet-500 dark:text-violet-400">📖 {formatRef(m)}</p>
-                            <p className="text-gray-700 dark:text-gray-300">"{m.content}"</p>
-                            {m.note && (
-                              <>
-                                <p className="font-semibold text-amber-500 dark:text-amber-400 pt-1">✏️ 묵상</p>
-                                <p className="text-gray-600 dark:text-gray-400">{m.note}</p>
-                              </>
-                            )}
-                          </div>
-                          {shareTab === 'community' && (
-                            <div className="flex items-center justify-between">
-                              <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
-                                <input type="checkbox" checked={shareAnon} onChange={(e) => setShareAnon(e.target.checked)} className="rounded" />
-                                익명으로 공유
-                              </label>
-                              <div className="flex gap-2">
-                                <button onClick={() => setSharingId(null)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">
-                                  취소
-                                </button>
-                                <button
-                                  onClick={() => shareToFeed(m)}
-                                  className="text-xs bg-indigo-600 text-white rounded-lg px-3 py-1.5 hover:bg-indigo-700 transition"
-                                >
-                                  올리기
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          {shareTab === 'team' && (
-                            <div className="flex items-center justify-between gap-2">
-                              {teams.length === 0 ? (
-                                <p className="text-xs text-gray-400">참여 중인 팀이 없어요</p>
-                              ) : (
-                                <select
-                                  value={selectedTeamId}
-                                  onChange={(e) => setSelectedTeamId(e.target.value)}
-                                  className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none"
-                                >
-                                  {teams.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                      {t.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                              <div className="flex shrink-0 gap-2">
-                                <button onClick={() => setSharingId(null)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">
-                                  취소
-                                </button>
-                                <button
-                                  onClick={() => shareToTeam(m)}
-                                  disabled={teams.length === 0}
-                                  className="text-xs bg-indigo-600 text-white rounded-lg px-3 py-1.5 hover:bg-indigo-700 disabled:opacity-40 transition"
-                                >
-                                  보내기
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <MeditationCard key={m.id} m={m} teams={teams} onNoteUpdate={handleNoteUpdate} />
               ))}
             </div>
           </main>
