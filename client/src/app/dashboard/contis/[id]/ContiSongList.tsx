@@ -29,8 +29,8 @@ export default function ContiSongList({ conti, contiId, token, onMove, onRemoveS
     try {
       await contisApi.uploadContiSheet(token, contiId, contiSongId, file);
       onSheetChange();
-    } catch {
-      // error handled by parent
+    } catch (err) {
+      alert((err as Error).message || '악보 업로드에 실패했습니다.');
     } finally {
       setUploadingSheetId(null);
       sheetTargetContiSongId.current = null;
@@ -179,7 +179,7 @@ export default function ContiSongList({ conti, contiId, token, onMove, onRemoveS
           })}
         </div>
       )}
-      <input ref={sheetInputRef} type="file" accept=".pdf,image/*" className="hidden" onChange={handleSheetUpload} />
+      <input ref={sheetInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleSheetUpload} />
     </>
   );
 }
