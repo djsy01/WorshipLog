@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { contisApi, Conti } from '@/lib/api';
+import { contisApi, type Conti } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -13,6 +13,8 @@ export default function ContisPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [myUserId, setMyUserId] = useState('');
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     // 생성 모달
     const [showModal, setShowModal] = useState(false);
@@ -37,11 +39,13 @@ export default function ContisPage() {
     }, [getToken]);
 
     useEffect(() => {
-        if (!localStorage.getItem('user')) {
+        const stored = localStorage.getItem('user');
+        if (!stored) {
             setShowLoginModal(true);
             setLoading(false);
             return;
         }
+        setMyUserId((JSON.parse(stored) as { id: string }).id);
         loadContis();
     }, [loadContis]);
 
@@ -67,8 +71,14 @@ export default function ContisPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('이 콘티를 삭제할까요?')) return;
+    const handleDelete = (id: string) => {
+        setConfirmDeleteId(id);
+    };
+
+    const doDelete = async () => {
+        if (!confirmDeleteId) return;
+        const id = confirmDeleteId;
+        setConfirmDeleteId(null);
         const token = getToken();
         if (!token) return;
         try {
@@ -83,6 +93,17 @@ export default function ContisPage() {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             <AppHeader page="콘티" />
 
+            {confirmDeleteId && (
+                <ConfirmModal
+                    title="콘티 삭제"
+                    message="이 콘티를 삭제하면 복구할 수 없습니다."
+                    confirmText="삭제"
+                    cancelText="취소"
+                    destructive
+                    onConfirm={doDelete}
+                    onCancel={() => setConfirmDeleteId(null)}
+                />
+            )}
             {showLoginModal && (
                 <ConfirmModal
                     title="로그인이 필요합니다"
@@ -140,7 +161,7 @@ export default function ContisPage() {
                         {contis.map((conti) => (
                             <div
                                 key={conti.id}
-                                className="group relative overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition hover:ring-violet-400 dark:bg-gray-900 dark:ring-gray-700 dark:hover:ring-violet-500"
+                                className="group relative rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition hover:ring-violet-400 dark:bg-gray-900 dark:ring-gray-700 dark:hover:ring-violet-500"
                             >
                                 <Link href={`/dashboard/contis/${conti.id}`} className="block">
                                     <div className="p-5">
@@ -157,22 +178,26 @@ export default function ContisPage() {
                                         {conti.description && (
                                             <p className="mb-3 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{conti.description}</p>
                                         )}
-                                        <p className="text-sm text-gray-400 dark:text-gray-500">찬양 {conti.songs.length}곡</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm text-gray-400 dark:text-gray-500">찬양 {conti.songs.length}곡</p>
+                                            {conti.shares.length > 0 && (
+                                                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                                                    {conti.shares.length}개 공유
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </Link>
+                                {conti.createdBy === myUserId && (
                                 <button
-                                    onClick={() => handleDelete(conti.id)}
-                                    className="absolute right-3 top-3 hidden rounded-lg bg-white/80 p-1 text-gray-500 shadow-sm backdrop-blur-sm transition hover:bg-red-50 hover:text-red-500 group-hover:block dark:bg-gray-900/80 dark:hover:bg-red-900/20"
+                                    onClick={(e) => { e.preventDefault(); handleDelete(conti.id); }}
+                                    className="absolute right-2 top-2 hidden rounded-lg bg-white/90 p-1 text-gray-400 shadow-sm backdrop-blur-sm hover:bg-red-50 hover:text-red-500 group-hover:block dark:bg-gray-900/90 dark:hover:bg-red-900/20"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                        />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                     </svg>
                                 </button>
+                                )}
                             </div>
                         ))}
                     </div>

@@ -6,15 +6,10 @@ datasource db {
   provider = "postgresql"
 }
 
-enum TeamRole {
-  leader
-  member
-}
-
 model User {
-  id              String   @id @default(uuid())
-  email           String   @unique
-  passwordHash    String?  @map("password_hash")
+  id              String    @id @default(uuid())
+  email           String    @unique
+  passwordHash    String?   @map("password_hash")
   name            String
   profileImageUrl String?   @map("profile_image_url")
   provider        String    @default("local")
@@ -25,23 +20,24 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  teamMemberships TeamMember[]
-  teamInvites     TeamInvite[]
-  songs           Song[]
-  contis          Conti[]
-  history         History[]
-  posts           CommunityPost[]
-  comments        CommunityComment[]
-  teams           Team[]
-  meditations     Meditation[]
-  globalPosts     Post[]
-  globalComments  Comment[]
+  orgs           Organization[] @relation("OrgCreator")
+  orgMemberships OrgMember[]
+  orgInvites     OrgInvite[]    @relation("OrgInviteCreator")
+  rooms          Room[]         @relation("RoomCreator")
+  messages       Message[]
+  songs          Song[]
+  contis         Conti[]
+  contiShares    ContiShare[]
+  history        History[]
+  meditations    Meditation[]
+  globalPosts    Post[]
+  globalComments Comment[]
 
   @@unique([provider, providerId])
   @@map("users")
 }
 
-model Team {
+model Organization {
   id          String   @id @default(uuid())
   name        String
   description String?
@@ -49,43 +45,76 @@ model Team {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  creator User            @relation(fields: [createdBy], references: [id])
-  members TeamMember[]
-  invites TeamInvite[]
-  contis  Conti[]
+  creator User        @relation("OrgCreator", fields: [createdBy], references: [id])
+  members OrgMember[]
+  invites OrgInvite[]
+  rooms   Room[]
   history History[]
-  posts   CommunityPost[]
 
-  @@map("teams")
+  @@map("organizations")
 }
 
-model TeamMember {
+model OrgMember {
   id       String   @id @default(uuid())
-  teamId   String   @map("team_id")
+  orgId    String   @map("org_id")
   userId   String   @map("user_id")
-  role     TeamRole @default(member)
+  role     String   @default("member")
   joinedAt DateTime @default(now()) @map("joined_at")
 
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([teamId, userId])
-  @@map("team_members")
+  @@unique([orgId, userId])
+  @@map("org_members")
 }
 
-model TeamInvite {
-  id        String    @id @default(uuid())
-  teamId    String    @map("team_id")
-  token     String    @unique
-  createdBy String    @map("created_by")
-  expiresAt DateTime  @map("expires_at")
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+model OrgInvite {
+  id            String    @id @default(uuid())
+  orgId         String    @map("org_id")
+  token         String    @unique
+  createdBy     String    @map("created_by")
+  expiresAt     DateTime  @map("expires_at")
+  usedAt        DateTime? @map("used_at")
+  inviteeEmail  String?   @map("invitee_email")
+  status        String    @default("pending")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
-  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator User         @relation("OrgInviteCreator", fields: [createdBy], references: [id], onDelete: Cascade)
 
-  @@map("team_invites")
+  @@map("org_invites")
+}
+
+model Room {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator     User          @relation("RoomCreator", fields: [createdBy], references: [id])
+  messages    Message[]
+  contis      Conti[]
+  contiShares ContiShare[]
+
+  @@map("rooms")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  roomId    String   @map("room_id")
+  userId    String   @map("user_id")
+  content   String
+  fileUrl   String?  @map("file_url")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
 }
 
 model Song {
@@ -112,18 +141,34 @@ model Conti {
   id          String    @id @default(uuid())
   title       String
   description String?
-  teamId      String?   @map("team_id")
+  roomId      String?   @map("room_id")
   createdBy   String    @map("created_by")
   worshipDate DateTime? @map("worship_date") @db.Date
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  team    Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  room    Room?       @relation(fields: [roomId], references: [id], onDelete: SetNull)
   creator User        @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   songs   ContiSong[]
   history History[]
+  shares  ContiShare[]
 
   @@map("contis")
+}
+
+model ContiShare {
+  id       String   @id @default(uuid())
+  contiId  String   @map("conti_id")
+  roomId   String   @map("room_id")
+  sharedBy String   @map("shared_by")
+  sharedAt DateTime @default(now()) @map("shared_at")
+
+  conti Conti @relation(fields: [contiId], references: [id], onDelete: Cascade)
+  room  Room  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [sharedBy], references: [id], onDelete: Cascade)
+
+  @@unique([contiId, roomId])
+  @@map("conti_shares")
 }
 
 model ContiSong {
@@ -158,47 +203,16 @@ model ContiSongSheet {
 model History {
   id          String    @id @default(uuid())
   userId      String    @map("user_id")
-  teamId      String?   @map("team_id")
+  orgId       String?   @map("org_id")
   contiId     String?   @map("conti_id")
   worshipDate DateTime? @map("worship_date") @db.Date
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team  Team?  @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  conti Conti? @relation(fields: [contiId], references: [id], onDelete: SetNull)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org   Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  conti Conti?        @relation(fields: [contiId], references: [id], onDelete: SetNull)
 
   @@map("history")
-}
-
-model CommunityPost {
-  id        String   @id @default(uuid())
-  teamId    String   @map("team_id")
-  userId    String   @map("user_id")
-  title     String?
-  content   String
-  fileUrl   String?  @map("file_url")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  team     Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  comments CommunityComment[]
-
-  @@map("community_posts")
-}
-
-model CommunityComment {
-  id        String   @id @default(uuid())
-  postId    String   @map("post_id")
-  userId    String   @map("user_id")
-  content   String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("community_comments")
 }
 
 model Meditation {

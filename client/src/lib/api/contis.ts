@@ -24,12 +24,13 @@ export interface Conti {
   title: string;
   description: string | null;
   worshipDate: string | null;
-  teamId: string | null;
+  roomId: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
   songs: ContiSong[];
   creator?: { id: string; name: string };
+  shares: { roomId: string }[];
 }
 
 export const contisApi = {
@@ -76,9 +77,9 @@ export const contisApi = {
   deleteContiSheet: (token: string, contiId: string, contiSongId: string, sheetId: string) =>
     request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}/sheet/${sheetId}`, { method: 'DELETE', headers: authHeaders(token) }),
 
-  share: (token: string, contiId: string, teamId: string) =>
-    request<Conti>(`/contis/${contiId}/share`, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ teamId }) }),
+  share: (token: string, contiId: string, roomId: string) =>
+    request<Conti>(`/contis/${contiId}/share`, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ roomId }) }),
 
-  unshare: (token: string, contiId: string) =>
-    request<Conti>(`/contis/${contiId}/share`, { method: 'DELETE', headers: authHeaders(token) }),
+  unshareFrom: (token: string, contiId: string, roomId: string) =>
+    request<Conti>(`/contis/${contiId}/share/${roomId}`, { method: 'DELETE', headers: authHeaders(token) }),
 };

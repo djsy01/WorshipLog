@@ -1,19 +1,19 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { teamsApi, uploadApi, type CommunityPost } from '@/lib/api';
+import { roomsApi, uploadApi, type Message } from '@/lib/api';
 
 interface Props {
-  teamId: string;
+  roomId: string;
   token: string;
-  messages: CommunityPost[];
+  messages: Message[];
   loading: boolean;
   myUserId: string;
-  onNewMessage: (msg: CommunityPost) => void;
+  onNewMessage: (msg: Message) => void;
   onDeleteMessage: (msgId: string) => void;
 }
 
-export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewMessage, onDeleteMessage }: Props) {
+export function TeamChatTab({ roomId, token, messages, loading, myUserId, onNewMessage, onDeleteMessage }: Props) {
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState('');
@@ -51,7 +51,7 @@ export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewM
     try {
       let fileUrl: string | undefined;
       if (file) { const res = await uploadApi.upload(token, file); fileUrl = res.url; }
-      const msg = await teamsApi.createPost(token, teamId, { content: input.trim().replace(/<[^>]*>/g, '') || '', fileUrl });
+      const msg = await roomsApi.createMessage(token, roomId, { content: input.trim() || '', fileUrl });
       onNewMessage(msg);
       setInput('');
       setFile(null);
@@ -62,26 +62,68 @@ export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewM
     }
   }
 
+  async function handleDelete(messageId: string) {
+    await roomsApi.deleteMessage(token, roomId, messageId);
+    onDeleteMessage(messageId);
+  }
+
+  function formatTime(dateStr: string) {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (isToday) return time;
+    return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) + ' ' + time;
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex-1 overflow-y-auto space-y-3 max-h-96">
         {loading && <div className="py-4 text-center text-sm text-gray-400">로딩 중...</div>}
         {!loading && messages.length === 0 && <div className="py-8 text-center text-sm text-gray-500">메시지가 없습니다.</div>}
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-2 ${msg.userId === myUserId ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xs rounded-lg px-4 py-2 text-sm ${msg.userId === myUserId ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'}`}>
-              {msg.content && <p>{msg.content}</p>}
-              {msg.fileUrl && (
-                <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className={`inline-block text-xs underline ${msg.userId === myUserId ? 'text-violet-200' : 'text-violet-600'}`}>
-                  파일 보기
-                </a>
-              )}
-              {msg.userId === myUserId && (
-                <button onClick={() => onDeleteMessage(msg.id)} className="ml-2 text-xs opacity-70 hover:opacity-100">삭제</button>
+        {messages.map((msg) => {
+          const isMine = msg.userId === myUserId;
+          return (
+            <div key={msg.id} className={`flex gap-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
+              {isMine ? (
+                <div className="flex items-end gap-1.5">
+                  <div className="group flex items-center gap-1">
+                    <button
+                      onClick={() => handleDelete(msg.id)}
+                      className="hidden group-hover:block text-xs text-gray-400 hover:text-red-500 shrink-0"
+                    >
+                      삭제
+                    </button>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="max-w-xs rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">
+                        {msg.content && <p>{msg.content}</p>}
+                        {msg.fileUrl && (
+                          <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-violet-200 underline">
+                            파일 보기
+                          </a>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">{formatTime(msg.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="ml-1 text-xs text-gray-400">{msg.user.name}</span>
+                  <div className="max-w-xs rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-900 dark:bg-gray-800 dark:text-gray-100">
+                    {msg.content && <p>{msg.content}</p>}
+                    {msg.fileUrl && (
+                      <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-violet-600 underline">
+                        파일 보기
+                      </a>
+                    )}
+                  </div>
+                  <span className="ml-1 text-xs text-gray-400">{formatTime(msg.createdAt)}</span>
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={chatBottomRef} />
       </div>
 
@@ -113,7 +155,8 @@ export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewM
           />
           <label className="rounded-lg bg-gray-200 p-2 cursor-pointer hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393" />
+              <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+              <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/>
             </svg>
             <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
           </label>

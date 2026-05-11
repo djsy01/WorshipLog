@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { bibleApi, teamsApi, type Meditation, type Team } from '@/lib/api';
+import { bibleApi, orgsApi, type Meditation, type Organization } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import ConfirmModal from '@/components/ConfirmModal';
 import { MonthSidebar } from './MonthSidebar';
@@ -22,7 +22,7 @@ export default function MeditationPage() {
   const router = useRouter();
   const [meditations, setMeditations] = useState<Meditation[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -44,7 +44,7 @@ export default function MeditationPage() {
         }
       })
       .catch(() => null);
-    teamsApi.list(token).then(setTeams).catch(() => null);
+    orgsApi.list(token).then(setOrgs).catch(() => null);
   }, [router]);
 
   // 연월 목록 (최신순)
@@ -203,7 +203,7 @@ export default function MeditationPage() {
 
             <div className="flex flex-col gap-5">
               {filtered.map((m) => (
-                <MeditationCard key={m.id} m={m} teams={teams} onNoteUpdate={handleNoteUpdate} />
+                <MeditationCard key={m.id} m={m} orgs={orgs} onNoteUpdate={handleNoteUpdate} />
               ))}
             </div>
           </main>

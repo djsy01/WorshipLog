@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { bibleApi, communityApi, teamsApi, type Meditation, type Team } from '@/lib/api';
+import { useState, useMemo } from 'react';
+import { bibleApi, roomsApi, type Meditation, type Organization } from '@/lib/api';
 
 function formatRef(m: Meditation) {
   return `${m.book} ${m.chapter}:${m.verse}`;
@@ -14,17 +14,20 @@ function formatDate(iso: string) {
 
 interface Props {
   m: Meditation;
-  teams: Team[];
+  orgs: Organization[];
   onNoteUpdate: (id: string, note: string) => void;
 }
 
-export default function MeditationCard({ m, teams, onNoteUpdate }: Props) {
+export default function MeditationCard({ m, orgs, onNoteUpdate }: Props) {
   const [editing, setEditing] = useState(false);
   const [noteInput, setNoteInput] = useState(m.note ?? '');
   const [sharing, setSharing] = useState(false);
-  const [shareTab, setShareTab] = useState<'community' | 'team'>('community');
-  const [shareAnon, setShareAnon] = useState(true);
-  const [selectedTeamId, setSelectedTeamId] = useState(teams[0]?.id ?? '');
+
+  const rooms = useMemo(
+    () => orgs.flatMap((o) => o.rooms.map((r) => ({ ...r, orgName: o.name }))),
+    [orgs]
+  );
+  const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.id ?? '');
 
   function getToken() {
     return localStorage.getItem('accessToken') ?? '';
@@ -41,14 +44,9 @@ export default function MeditationCard({ m, teams, onNoteUpdate }: Props) {
     return m.note ? `${verse}\n\n✏️ 묵상\n${m.note}` : verse;
   }
 
-  async function shareToFeed() {
-    await communityApi.create(getToken(), { content: buildShareContent(), isAnonymous: shareAnon, meditationId: m.id, category: 'meditation' });
-    setSharing(false);
-  }
-
-  async function shareToTeam() {
-    if (!selectedTeamId) return;
-    await teamsApi.createPost(getToken(), selectedTeamId, { content: buildShareContent() });
+  async function shareToRoom() {
+    if (!selectedRoomId) return;
+    await roomsApi.createMessage(getToken(), selectedRoomId, { content: buildShareContent() });
     setSharing(false);
   }
 
@@ -66,7 +64,7 @@ export default function MeditationCard({ m, teams, onNoteUpdate }: Props) {
               메모
             </button>
             <button
-              onClick={() => { setSharing(true); setShareAnon(true); setShareTab('community'); }}
+              onClick={() => setSharing(true)}
               className="rounded-lg px-2.5 py-1 text-xs text-indigo-500 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30 transition"
             >
               공유
@@ -114,9 +112,8 @@ export default function MeditationCard({ m, teams, onNoteUpdate }: Props) {
 
         {sharing && (
           <div className="mt-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 overflow-hidden">
-            <div className="flex border-b border-indigo-200 dark:border-indigo-800">
-              <button onClick={() => setShareTab('community')} className={`flex-1 py-2 text-xs font-semibold transition ${shareTab === 'community' ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>커뮤니티</button>
-              <button onClick={() => setShareTab('team')} className={`flex-1 py-2 text-xs font-semibold transition ${shareTab === 'team' ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}>팀스페이스</button>
+            <div className="px-3 py-2 border-b border-indigo-200 dark:border-indigo-800">
+              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">채팅방에 공유</p>
             </div>
             <div className="flex flex-col gap-3 p-3">
               <div className="rounded-lg bg-white dark:bg-gray-900 px-3 py-2.5 text-xs leading-relaxed space-y-1.5">
@@ -129,33 +126,19 @@ export default function MeditationCard({ m, teams, onNoteUpdate }: Props) {
                   </>
                 )}
               </div>
-              {shareTab === 'community' && (
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
-                    <input type="checkbox" checked={shareAnon} onChange={(e) => setShareAnon(e.target.checked)} className="rounded" />
-                    익명으로 공유
-                  </label>
-                  <div className="flex gap-2">
-                    <button onClick={() => setSharing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
-                    <button onClick={shareToFeed} className="text-xs bg-indigo-600 text-white rounded-lg px-3 py-1.5 hover:bg-indigo-700 transition">올리기</button>
-                  </div>
+              <div className="flex items-center justify-between gap-2">
+                {rooms.length === 0 ? (
+                  <p className="text-xs text-gray-400">참여 중인 채팅방이 없어요</p>
+                ) : (
+                  <select value={selectedRoomId} onChange={(e) => setSelectedRoomId(e.target.value)} className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none">
+                    {rooms.map((r) => <option key={r.id} value={r.id}>{r.orgName} / {r.name}</option>)}
+                  </select>
+                )}
+                <div className="flex shrink-0 gap-2">
+                  <button onClick={() => setSharing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
+                  <button onClick={shareToRoom} disabled={rooms.length === 0} className="text-xs bg-indigo-600 text-white rounded-lg px-3 py-1.5 hover:bg-indigo-700 disabled:opacity-40 transition">보내기</button>
                 </div>
-              )}
-              {shareTab === 'team' && (
-                <div className="flex items-center justify-between gap-2">
-                  {teams.length === 0 ? (
-                    <p className="text-xs text-gray-400">참여 중인 팀이 없어요</p>
-                  ) : (
-                    <select value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value)} className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none">
-                      {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  )}
-                  <div className="flex shrink-0 gap-2">
-                    <button onClick={() => setSharing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
-                    <button onClick={shareToTeam} disabled={teams.length === 0} className="text-xs bg-indigo-600 text-white rounded-lg px-3 py-1.5 hover:bg-indigo-700 disabled:opacity-40 transition">보내기</button>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { IsOptional, IsString } from 'class-validator';
 
-export class CreateTeamDto {
+export class CreateOrgDto {
   @IsString()
   name!: string;
 
