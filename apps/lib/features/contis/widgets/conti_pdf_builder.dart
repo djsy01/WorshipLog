@@ -1,6 +1,6 @@
-import 'dart:typed_data';
 import 'package:dio/dio.dart' show Dio, Options, ResponseType;
 import 'package:flutter/material.dart' show MemoryImage;
+import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../../core/api_client.dart';
@@ -8,8 +8,8 @@ import '../models/conti_detail.dart';
 import 'conti_pdf_layout.dart';
 
 Future<void> shareContiPdf(ContiDetail conti) async {
-  final ttf = await PdfGoogleFonts.nanumGothicRegular();
-  final ttfBold = await PdfGoogleFonts.nanumGothicBold();
+  final fontData = await rootBundle.load('assets/fonts/gabia_solmee.ttf');
+  final ttf = pw.Font.ttf(fontData);
   final plainDio = Dio();
   final songImages = <List<pw.ImageProvider>>[];
   final errorMsgs = <List<String>>[];
@@ -64,6 +64,11 @@ Future<void> shareContiPdf(ContiDetail conti) async {
     errorMsgs.add(errors);
   }
 
-  final doc = buildContiPdfDoc(conti, songImages, errorMsgs, ttf, ttfBold);
-  await Printing.layoutPdf(onLayout: (_) async => doc.save(), name: conti.title);
+  final doc = buildContiPdfDoc(conti, songImages, errorMsgs, ttf, ttf);
+  final pdfBytes = await doc.save();
+
+  await Printing.layoutPdf(
+    onLayout: (_) async => pdfBytes,
+    name: conti.title,
+  );
 }

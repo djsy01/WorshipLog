@@ -17,6 +17,7 @@ model User {
   role            String    @default("user")
   emailVerified   Boolean   @default(false) @map("email_verified")
   emailVerifiedAt DateTime? @map("email_verified_at")
+  fcmToken        String?   @map("fcm_token")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 

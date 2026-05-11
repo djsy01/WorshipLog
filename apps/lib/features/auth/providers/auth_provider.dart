@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/api_client.dart';
+import '../../../core/api_client.dart' show dio, onAuthFailed;
+import '../../../core/notification_service.dart';
 import '../../../core/token_storage.dart';
 import '../models/auth_response.dart';
 import '../models/user_info.dart';
@@ -17,6 +18,7 @@ class AuthState {
 
 class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier() : super(AuthState(status: AuthStatus.unknown)) {
+    onAuthFailed = () => state = AuthState(status: AuthStatus.unauthenticated);
     _checkAuth();
   }
 
@@ -42,6 +44,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         user: auth.user,
       );
       state = AuthState(status: AuthStatus.authenticated, user: auth.user);
+      // FCM 토큰 서버 등록
+      final fcmToken = await NotificationService.getToken();
+      if (fcmToken != null) await NotificationService.saveTokenToServer(fcmToken);
     } on DioException catch (e) {
       final msg = e.response?.data?['message'] ?? '로그인에 실패했습니다.';
       state = AuthState(
