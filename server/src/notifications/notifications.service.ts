@@ -10,15 +10,21 @@ export class NotificationsService implements OnModuleInit {
   constructor(private config: ConfigService) {}
 
   onModuleInit() {
-    const key = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT');
-    if (!key) {
-      this.logger.warn('FIREBASE_SERVICE_ACCOUNT not set — push notifications disabled');
+    const projectId = this.config.get<string>('FIREBASE_PROJECT_ID');
+    const clientEmail = this.config.get<string>('FIREBASE_CLIENT_EMAIL');
+    const privateKey = this.config.get<string>('FIREBASE_PRIVATE_KEY');
+    if (!projectId || !clientEmail || !privateKey) {
+      this.logger.warn('Firebase credentials not set — push notifications disabled');
       return;
     }
     try {
       if (!admin.apps.length) {
         admin.initializeApp({
-          credential: admin.credential.cert(JSON.parse(key)),
+          credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            privateKey: privateKey.replace(/\\n/g, '\n'),
+          }),
         });
       }
       this.initialized = true;
