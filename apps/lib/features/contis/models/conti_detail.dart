@@ -72,6 +72,7 @@ class ContiDetail {
   final String title;
   final String? description;
   final DateTime? worshipDate;
+  final String? createdBy;
   final List<ContiSongItem> songs;
 
   ContiDetail({
@@ -79,6 +80,7 @@ class ContiDetail {
     required this.title,
     this.description,
     this.worshipDate,
+    this.createdBy,
     required this.songs,
   });
 
@@ -89,6 +91,7 @@ class ContiDetail {
         worshipDate: json['worshipDate'] != null
             ? DateTime.tryParse(json['worshipDate'] as String)
             : null,
+        createdBy: json['createdBy'] as String?,
         songs: (json['songs'] as List? ?? [])
             .map((e) => ContiSongItem.fromJson(e as Map<String, dynamic>))
             .toList(),

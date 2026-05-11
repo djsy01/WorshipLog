@@ -7,6 +7,8 @@ import '../widgets/add_song_sheet.dart';
 import '../widgets/conti_pdf_builder.dart';
 import '../widgets/conti_song_row.dart';
 import '../widgets/edit_conti_info_sheet.dart';
+import 'package:go_router/go_router.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class ContiDetailScreen extends ConsumerStatefulWidget {
   final String contiId;
@@ -21,6 +23,7 @@ class _ContiDetailScreenState extends ConsumerState<ContiDetailScreen> {
   bool _loading = true;
   String? _error;
   bool _sharingPdf = false;
+  bool _cloning = false;
 
   @override
   void initState() {
@@ -111,6 +114,21 @@ class _ContiDetailScreenState extends ConsumerState<ContiDetailScreen> {
     );
   }
 
+  Future<void> _clone() async {
+    setState(() => _cloning = true);
+    try {
+      final cloned = await ref.read(contisProvider.notifier).clone(widget.contiId);
+      if (!mounted) return;
+      if (cloned == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('복제에 실패했습니다.')));
+      } else {
+        context.go('/contis/${cloned.id}');
+      }
+    } finally {
+      if (mounted) setState(() => _cloning = false);
+    }
+  }
+
   Future<void> _confirmRemove(ContiSongItem item) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -133,6 +151,9 @@ class _ContiDetailScreenState extends ConsumerState<ContiDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final auth = ref.watch(authProvider);
+    final myUserId = auth.user?.id;
+    final isOwner = _conti?.createdBy != null && _conti!.createdBy == myUserId;
 
     return Scaffold(
       appBar: AppBar(
@@ -143,6 +164,17 @@ class _ContiDetailScreenState extends ConsumerState<ContiDetailScreen> {
         title: const Text('콘티 편집', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
+          if (_conti != null && !isOwner)
+            _cloning
+                ? const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.copy_outlined),
+                    tooltip: '내 콘티로 복제',
+                    onPressed: _clone,
+                  ),
           if (_conti != null && _conti!.songs.isNotEmpty)
             _sharingPdf
                 ? const Padding(

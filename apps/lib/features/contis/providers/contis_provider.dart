@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api_client.dart';
 import '../models/conti.dart';
+import '../models/conti_detail.dart';
 
 class ContisState {
   final List<Conti> contis;
@@ -72,6 +73,17 @@ class ContisNotifier extends StateNotifier<ContisState> {
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<ContiDetail?> clone(String contiId) async {
+    try {
+      final res = await dio.post('contis/$contiId/clone');
+      final cloned = ContiDetail.fromJson(res.data as Map<String, dynamic>);
+      await load();
+      return cloned;
+    } catch (_) {
+      return null;
     }
   }
 }
