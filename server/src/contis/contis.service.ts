@@ -50,12 +50,15 @@ export class ContisService {
     if (!conti) throw new NotFoundException('콘티를 찾을 수 없습니다.');
     if (conti.createdBy === userId) return conti;
 
-    // 팀 공유 중인 콘티는 팀 멤버도 조회 가능
-    if (conti.teamId) {
-      const member = await this.prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId: conti.teamId, userId } },
-      });
-      if (member) return conti;
+    // 채팅방에 공유된 콘티는 조직 멤버도 조회 가능
+    if (conti.roomId) {
+      const room = await this.prisma.room.findUnique({ where: { id: conti.roomId } });
+      if (room) {
+        const member = await this.prisma.orgMember.findUnique({
+          where: { orgId_userId: { orgId: room.orgId, userId } },
+        });
+        if (member) return conti;
+      }
     }
     throw new ForbiddenException('접근 권한이 없습니다.');
   }
@@ -82,19 +85,22 @@ export class ContisService {
     return { message: '삭제되었습니다.' };
   }
 
-  async shareWithTeam(userId: string, contiId: string, teamId: string) {
+  async shareWithRoom(userId: string, contiId: string, roomId: string) {
     const conti = await this.prisma.conti.findUnique({ where: { id: contiId } });
     if (!conti) throw new NotFoundException('콘티를 찾을 수 없습니다.');
     if (conti.createdBy !== userId) throw new ForbiddenException('공유 권한이 없습니다.');
 
-    const member = await this.prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } },
+    const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundException('채팅방을 찾을 수 없습니다.');
+
+    const member = await this.prisma.orgMember.findUnique({
+      where: { orgId_userId: { orgId: room.orgId, userId } },
     });
-    if (!member) throw new ForbiddenException('팀 멤버가 아닙니다.');
+    if (!member) throw new ForbiddenException('조직 멤버가 아닙니다.');
 
     return this.prisma.conti.update({
       where: { id: contiId },
-      data: { teamId },
+      data: { roomId },
       include: CONTI_INCLUDE,
     });
   }
@@ -106,7 +112,7 @@ export class ContisService {
 
     return this.prisma.conti.update({
       where: { id: contiId },
-      data: { teamId: null },
+      data: { roomId: null },
       include: CONTI_INCLUDE,
     });
   }

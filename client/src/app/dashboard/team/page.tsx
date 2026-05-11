@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { teamsApi, type Team, type CommunityPost } from '@/lib/api';
+import { orgsApi, roomsApi, type Organization, type Message, type PendingInvite } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import ConfirmModal from '@/components/ConfirmModal';
 import { TeamList } from './TeamList';
@@ -10,36 +10,44 @@ import { TeamDetailPanel } from './TeamDetailPanel';
 import { TeamCreateModal } from './TeamCreateModal';
 import { TeamJoinModal } from './TeamJoinModal';
 import { TeamInviteModal } from './TeamInviteModal';
+import { RoomCreateModal } from './RoomCreateModal';
 
-type CommunityTab = 'chat' | 'conti';
+type Tab = 'chat' | 'conti';
 
 export default function TeamPage() {
   const router = useRouter();
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [myUserId, setMyUserId] = useState('');
 
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const selectedTeam = teams.find((t) => t.id === selectedTeamId) ?? null;
-  const [communityTab, setCommunityTab] = useState<CommunityTab>('chat');
-  const [teamContis, setTeamContis] = useState<any[]>([]);
-  const [loadingContis, setLoadingContis] = useState(false);
-  const [messages, setMessages] = useState<CommunityPost[]>([]);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
-  const [teamOrder, setTeamOrder] = useState<string[]>([]);
-  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+  const selectedOrg = orgs.find((o) => o.id === selectedOrgId) ?? null;
+  const selectedRoom = selectedOrg?.rooms.find((r) => r.id === selectedRoomId) ?? null;
+
+  const [tab, setTab] = useState<Tab>('chat');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [roomContis, setRoomContis] = useState<any[]>([]);
+  const [loadingContis, setLoadingContis] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
-  const [inviteInfo, setInviteInfo] = useState<{ token: string; expiresAt: string } | null>(null);
+
+  const [showJoin, setShowJoin] = useState(false);
   const [joinToken, setJoinToken] = useState('');
   const [joining, setJoining] = useState(false);
-  const [showJoin, setShowJoin] = useState(false);
   const [joinError, setJoinError] = useState('');
+
+  const [inviteInfo, setInviteInfo] = useState<{ orgId: string; token: string; expiresAt: string } | null>(null);
+
+  const [roomCreateOrgId, setRoomCreateOrgId] = useState<string | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
@@ -47,11 +55,11 @@ export default function TeamPage() {
     return token;
   }, [router]);
 
-  const loadTeams = useCallback(async () => {
+  const loadOrgs = useCallback(async () => {
     const token = getToken();
     if (!token) return;
     try {
-      setTeams(await teamsApi.list(token));
+      setOrgs(await orgsApi.list(token));
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -59,54 +67,76 @@ export default function TeamPage() {
     }
   }, [getToken]);
 
+  const loadPendingInvites = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      setPendingInvites(await orgsApi.getPendingInvites(token));
+    } catch { /* silent */ }
+  }, [getToken]);
+
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (!stored) { setShowLoginModal(true); setLoading(false); return; }
-    const userId = (JSON.parse(stored) as { id: string }).id;
-    setMyUserId(userId);
-    const savedOrder = localStorage.getItem(`teamOrder_${userId}`);
-    if (savedOrder) setTeamOrder(JSON.parse(savedOrder));
-    loadTeams();
-  }, [loadTeams]);
+    setMyUserId((JSON.parse(stored) as { id: string }).id);
+    loadOrgs();
+    loadPendingInvites();
+  }, [loadOrgs, loadPendingInvites]);
 
-  useEffect(() => {
-    localStorage.setItem(`teamOrder_${myUserId}`, JSON.stringify(teamOrder));
-  }, [teamOrder, myUserId]);
+  const handleRespondInvite = async (inviteId: string, accept: boolean) => {
+    const token = getToken();
+    if (!token) return;
+    setRespondingId(inviteId);
+    try {
+      if (accept) {
+        const org = await orgsApi.acceptInvite(token, inviteId);
+        setOrgs((prev) => [...prev, org]);
+      } else {
+        await orgsApi.rejectInvite(token, inviteId);
+      }
+      setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '처리 실패');
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
-  const loadMessages = useCallback(async (teamId: string) => {
+  const loadMessages = useCallback(async (roomId: string) => {
     const token = getToken();
     if (!token) return;
     setLoadingMessages(true);
     try {
-      setMessages([...(await teamsApi.getPosts(token, teamId))].reverse());
+      setMessages([...(await roomsApi.getMessages(token, roomId))].reverse());
     } finally {
       setLoadingMessages(false);
     }
   }, [getToken]);
 
-  const selectTeam = useCallback(async (teamId: string) => {
-    setSelectedTeamId(teamId);
-    setCommunityTab('chat');
-    setMessages([]);
-    setTeamContis([]);
-    await loadMessages(teamId);
-  }, [loadMessages]);
-
-  const loadContis = useCallback(async (teamId: string) => {
+  const loadContis = useCallback(async (roomId: string) => {
     const token = getToken();
     if (!token) return;
     setLoadingContis(true);
     try {
-      setTeamContis(await teamsApi.getContis(token, teamId));
+      setRoomContis(await roomsApi.getContis(token, roomId));
     } finally {
       setLoadingContis(false);
     }
   }, [getToken]);
 
-  const handleTabChange = async (tab: CommunityTab) => {
-    setCommunityTab(tab);
-    if (tab === 'conti' && selectedTeamId && teamContis.length === 0) await loadContis(selectedTeamId);
-    if (tab === 'chat' && selectedTeamId) await loadMessages(selectedTeamId);
+  const selectRoom = useCallback(async (roomId: string, orgId: string) => {
+    setSelectedRoomId(roomId);
+    setSelectedOrgId(orgId);
+    setTab('chat');
+    setMessages([]);
+    setRoomContis([]);
+    await loadMessages(roomId);
+  }, [loadMessages]);
+
+  const handleTabChange = async (newTab: Tab) => {
+    setTab(newTab);
+    if (newTab === 'conti' && selectedRoomId && roomContis.length === 0) await loadContis(selectedRoomId);
+    if (newTab === 'chat' && selectedRoomId) await loadMessages(selectedRoomId);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -115,8 +145,8 @@ export default function TeamPage() {
     if (!token || !createForm.name.trim()) return;
     setCreating(true);
     try {
-      const team = await teamsApi.create(token, { name: createForm.name.trim(), description: createForm.description.trim() || undefined });
-      setTeams((prev) => [team, ...prev]);
+      const org = await orgsApi.create(token, { name: createForm.name.trim(), description: createForm.description.trim() || undefined });
+      setOrgs((prev) => [org, ...prev]);
       setShowCreate(false);
       setCreateForm({ name: '', description: '' });
     } catch (e) {
@@ -126,11 +156,12 @@ export default function TeamPage() {
     }
   };
 
-  const handleCreateInvite = async (teamId: string) => {
+  const handleCreateInvite = async (orgId: string) => {
     const token = getToken();
     if (!token) return;
     try {
-      setInviteInfo(await teamsApi.createInvite(token, teamId));
+      const info = await orgsApi.createInvite(token, orgId);
+      setInviteInfo({ orgId, ...info });
     } catch (e) {
       setError(e instanceof Error ? e.message : '초대 링크 생성 실패');
     }
@@ -143,8 +174,8 @@ export default function TeamPage() {
     setJoining(true);
     setJoinError('');
     try {
-      const team = await teamsApi.join(token, joinToken.trim());
-      if (team) setTeams((prev) => [...prev, team]);
+      const org = await orgsApi.join(token, joinToken.trim());
+      if (org) setOrgs((prev) => [...prev, org]);
       setShowJoin(false);
       setJoinToken('');
     } catch (e) {
@@ -154,21 +185,49 @@ export default function TeamPage() {
     }
   };
 
-  const handleLeaveTeam = async (teamId: string) => {
-    if (!confirm('팀을 삭제하시겠습니까?')) return;
+  const handleLeaveOrg = async (org: Organization) => {
+    const isLeader = org.createdBy === myUserId;
+    const msg = isLeader ? `"${org.name}" 팀을 삭제하시겠습니까?` : `"${org.name}"에서 나가시겠습니까?`;
+    if (!confirm(msg)) return;
     const token = getToken();
     if (!token) return;
     try {
-      await teamsApi.remove(token, teamId);
-      setTeams((prev) => prev.filter((t) => t.id !== teamId));
-      if (selectedTeamId === teamId) setSelectedTeamId(null);
+      if (isLeader) {
+        await orgsApi.remove(token, org.id);
+      } else {
+        await orgsApi.leave(token, org.id);
+      }
+      setOrgs((prev) => prev.filter((o) => o.id !== org.id));
+      if (selectedOrgId === org.id) { setSelectedOrgId(null); setSelectedRoomId(null); }
     } catch (e) {
-      setError(e instanceof Error ? e.message : '삭제 실패');
+      setError(e instanceof Error ? e.message : '실패');
     }
   };
 
-  const toggleMembers = (teamId: string) => {
-    setExpandedTeams((prev) => { const s = new Set(prev); s.has(teamId) ? s.delete(teamId) : s.add(teamId); return s; });
+  const handleCreateRoom = async (name: string) => {
+    if (!roomCreateOrgId) return;
+    const token = getToken();
+    if (!token) return;
+    const room = await roomsApi.create(token, { orgId: roomCreateOrgId, name });
+    setOrgs((prev) =>
+      prev.map((o) => o.id === roomCreateOrgId ? { ...o, rooms: [...o.rooms, room] } : o)
+    );
+    setRoomCreateOrgId(null);
+  };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    if (!confirm('채팅방을 삭제하시겠습니까?')) return;
+    const token = getToken();
+    if (!token) return;
+    try {
+      await roomsApi.remove(token, roomId);
+      setOrgs((prev) =>
+        prev.map((o) => ({ ...o, rooms: o.rooms.filter((r) => r.id !== roomId) }))
+      );
+      if (selectedRoomId === roomId) { setSelectedRoomId(null); setSelectedOrgId(null); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '삭제 실패');
+    }
   };
 
   const token = typeof window !== 'undefined' ? (localStorage.getItem('accessToken') ?? '') : '';
@@ -177,33 +236,42 @@ export default function TeamPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <AppHeader page="팀" />
+      <AppHeader page="팀스페이스" />
       <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="flex gap-6">
+          {/* 좌측 패널 */}
           <div className="w-64 shrink-0 space-y-3">
-            <button onClick={() => setShowCreate(true)} className="w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700">
-              + 팀 생성
-            </button>
-            <button onClick={() => setShowJoin(true)} className="w-full rounded-lg border border-violet-600 px-4 py-2 text-sm font-semibold text-violet-600 transition hover:bg-violet-50 dark:border-violet-500 dark:text-violet-400 dark:hover:bg-violet-900/10">
-              팀 참여
-            </button>
-            <TeamList
-              teams={teams}
-              selectedTeamId={selectedTeamId}
-              onSelectTeam={selectTeam}
-              myUserId={myUserId}
-              onToggleMembers={toggleMembers}
-              expandedTeams={expandedTeams}
-              teamOrder={teamOrder}
-              onTeamOrderChange={setTeamOrder}
-              onCreateInvite={handleCreateInvite}
-              onLeaveTeam={handleLeaveTeam}
-            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowCreate(true)} className="flex-1 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-700">
+                + 팀 생성
+              </button>
+              <button onClick={() => setShowJoin(true)} className="flex-1 rounded-lg border border-violet-600 px-3 py-2 text-sm font-semibold text-violet-600 transition hover:bg-violet-50 dark:border-violet-500 dark:text-violet-400 dark:hover:bg-violet-900/10">
+                참여
+              </button>
+            </div>
+
+            {orgs.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-4">팀이 없습니다.<br />팀을 생성하거나 참여하세요.</p>
+            ) : (
+              <TeamList
+                orgs={orgs}
+                selectedRoomId={selectedRoomId}
+                onSelectRoom={selectRoom}
+                myUserId={myUserId}
+                onCreateInvite={handleCreateInvite}
+                onLeaveOrg={handleLeaveOrg}
+                onCreateRoom={(orgId) => setRoomCreateOrgId(orgId)}
+                onDeleteRoom={handleDeleteRoom}
+              />
+            )}
           </div>
-          {selectedTeam && (
+
+          {/* 우측 패널 */}
+          {selectedOrg && selectedRoom ? (
             <TeamDetailPanel
-              team={selectedTeam}
-              tab={communityTab}
+              org={selectedOrg}
+              room={selectedRoom}
+              tab={tab}
               onTabChange={handleTabChange}
               messages={messages}
               loadingMessages={loadingMessages}
@@ -211,9 +279,13 @@ export default function TeamPage() {
               token={token}
               onNewMessage={(msg) => setMessages((prev) => [...prev, msg])}
               onDeleteMessage={(id) => setMessages((prev) => prev.filter((m) => m.id !== id))}
-              teamContis={teamContis}
+              roomContis={roomContis}
               loadingContis={loadingContis}
             />
+          ) : (
+            <div className="flex flex-1 items-center justify-center rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+              <p className="text-sm text-gray-400">채팅방을 선택하세요.</p>
+            </div>
           )}
         </div>
       </main>
@@ -225,10 +297,30 @@ export default function TeamPage() {
         <TeamCreateModal form={createForm} creating={creating} onChange={(f, v) => setCreateForm((prev) => ({ ...prev, [f]: v }))} onSubmit={handleCreate} onClose={() => setShowCreate(false)} />
       )}
       {showJoin && (
-        <TeamJoinModal joinToken={joinToken} joining={joining} joinError={joinError} onChange={setJoinToken} onSubmit={handleJoin} onClose={() => setShowJoin(false)} />
+        <TeamJoinModal
+          joinToken={joinToken}
+          joining={joining}
+          joinError={joinError}
+          pendingInvites={pendingInvites}
+          respondingId={respondingId}
+          onChange={setJoinToken}
+          onSubmit={handleJoin}
+          onRespond={handleRespondInvite}
+          onClose={() => setShowJoin(false)}
+        />
       )}
       {inviteInfo && (
-        <TeamInviteModal token={inviteInfo.token} expiresAt={inviteInfo.expiresAt} onClose={() => setInviteInfo(null)} />
+        <TeamInviteModal
+          orgId={inviteInfo.orgId}
+          token={inviteInfo.token}
+          expiresAt={inviteInfo.expiresAt}
+          authToken={token}
+          onMemberAdded={loadOrgs}
+          onClose={() => setInviteInfo(null)}
+        />
+      )}
+      {roomCreateOrgId && (
+        <RoomCreateModal onSubmit={handleCreateRoom} onClose={() => setRoomCreateOrgId(null)} />
       )}
       {error && (
         <div className="fixed bottom-4 right-4 rounded-lg bg-red-50 p-4 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">

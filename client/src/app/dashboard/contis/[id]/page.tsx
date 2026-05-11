@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { contisApi, teamsApi, type Conti, type ContiSong, type Team } from '@/lib/api';
+import { contisApi, orgsApi, type Conti, type ContiSong, type Organization } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import ContiPrintLayout from './ContiPrintLayout';
 import ContiInfoCard from './ContiInfoCard';
@@ -22,7 +22,7 @@ export default function ContiEditPage() {
   const [showAddSong, setShowAddSong] = useState(false);
   const [editingCs, setEditingCs] = useState<ContiSong | null>(null);
   const [myUserId, setMyUserId] = useState('');
-  const [myTeams, setMyTeams] = useState<Team[]>([]);
+  const [myOrgs, setMyOrgs] = useState<Organization[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharing, setSharing] = useState(false);
 
@@ -49,16 +49,16 @@ export default function ContiEditPage() {
     const stored = localStorage.getItem('user');
     if (stored) setMyUserId((JSON.parse(stored) as { id: string }).id);
     const token = localStorage.getItem('accessToken');
-    if (token) teamsApi.list(token).then(setMyTeams).catch(() => null);
+    if (token) orgsApi.list(token).then(setMyOrgs).catch(() => null);
     loadConti();
   }, [loadConti]);
 
-  const handleShare = async (teamId: string) => {
+  const handleShare = async (roomId: string) => {
     const token = getToken();
     if (!token) return;
     setSharing(true);
     try {
-      const updated = await contisApi.share(token, contiId, teamId);
+      const updated = await contisApi.share(token, contiId, roomId);
       setConti(updated);
       setShowShareModal(false);
     } catch (e) {
@@ -174,7 +174,7 @@ export default function ContiEditPage() {
             contiId={contiId}
             token={token}
             myUserId={myUserId}
-            myTeams={myTeams}
+            myOrgs={myOrgs}
             sharing={sharing}
             onUpdate={setConti}
             onUnshare={handleUnshare}
@@ -214,7 +214,7 @@ export default function ContiEditPage() {
       )}
       {showShareModal && (
         <ShareModal
-          teams={myTeams}
+          orgs={myOrgs}
           sharing={sharing}
           onShare={handleShare}
           onClose={() => setShowShareModal(false)}

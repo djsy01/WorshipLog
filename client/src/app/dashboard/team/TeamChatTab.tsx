@@ -1,19 +1,19 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { teamsApi, uploadApi, type CommunityPost } from '@/lib/api';
+import { roomsApi, uploadApi, type Message } from '@/lib/api';
 
 interface Props {
-  teamId: string;
+  roomId: string;
   token: string;
-  messages: CommunityPost[];
+  messages: Message[];
   loading: boolean;
   myUserId: string;
-  onNewMessage: (msg: CommunityPost) => void;
+  onNewMessage: (msg: Message) => void;
   onDeleteMessage: (msgId: string) => void;
 }
 
-export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewMessage, onDeleteMessage }: Props) {
+export function TeamChatTab({ roomId, token, messages, loading, myUserId, onNewMessage, onDeleteMessage }: Props) {
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState('');
@@ -51,7 +51,7 @@ export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewM
     try {
       let fileUrl: string | undefined;
       if (file) { const res = await uploadApi.upload(token, file); fileUrl = res.url; }
-      const msg = await teamsApi.createPost(token, teamId, { content: input.trim().replace(/<[^>]*>/g, '') || '', fileUrl });
+      const msg = await roomsApi.createMessage(token, roomId, { content: input.trim() || '', fileUrl });
       onNewMessage(msg);
       setInput('');
       setFile(null);
@@ -60,6 +60,11 @@ export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewM
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleDelete(messageId: string) {
+    await roomsApi.deleteMessage(token, roomId, messageId);
+    onDeleteMessage(messageId);
   }
 
   return (
@@ -77,7 +82,7 @@ export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewM
                 </a>
               )}
               {msg.userId === myUserId && (
-                <button onClick={() => onDeleteMessage(msg.id)} className="ml-2 text-xs opacity-70 hover:opacity-100">삭제</button>
+                <button onClick={() => handleDelete(msg.id)} className="ml-2 text-xs opacity-70 hover:opacity-100">삭제</button>
               )}
             </div>
           </div>
@@ -113,7 +118,8 @@ export function TeamChatTab({ teamId, token, messages, loading, myUserId, onNewM
           />
           <label className="rounded-lg bg-gray-200 p-2 cursor-pointer hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393" />
+              <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+              <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/>
             </svg>
             <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
           </label>

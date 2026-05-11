@@ -1,21 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { contisApi, type Conti, type Team } from '@/lib/api';
+import { contisApi, type Conti, type Organization } from '@/lib/api';
 
 interface Props {
   conti: Conti;
   contiId: string;
   token: string;
   myUserId: string;
-  myTeams: Team[];
+  myOrgs: Organization[];
   sharing: boolean;
   onUpdate: (c: Conti) => void;
   onUnshare: () => void;
   onShowShare: () => void;
 }
 
-export default function ContiInfoCard({ conti, contiId, token, myUserId, myTeams, sharing, onUpdate, onUnshare, onShowShare }: Props) {
+export default function ContiInfoCard({ conti, contiId, token, myUserId, myOrgs, sharing, onUpdate, onUnshare, onShowShare }: Props) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title: conti.title, description: conti.description ?? '', worshipDate: conti.worshipDate?.split('T')[0] ?? '' });
   const [saving, setSaving] = useState(false);
@@ -83,13 +83,13 @@ export default function ContiInfoCard({ conti, contiId, token, myUserId, myTeams
               </p>
             )}
             {conti.description && <p className="mt-2 text-gray-500 dark:text-gray-400">{conti.description}</p>}
-            {conti.teamId && (
+            {conti.roomId && (
               <div className="mt-2 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
                   </svg>
-                  팀 공유 중
+                  채팅방 공유 중
                 </span>
                 {conti.createdBy === myUserId && (
                   <button onClick={onUnshare} disabled={sharing} className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50">
@@ -100,9 +100,9 @@ export default function ContiInfoCard({ conti, contiId, token, myUserId, myTeams
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            {conti.createdBy === myUserId && !conti.teamId && myTeams.length > 0 && (
+            {conti.createdBy === myUserId && !conti.roomId && myOrgs.some((o) => o.rooms.length > 0) && (
               <button onClick={onShowShare} className="print:hidden rounded-lg px-2.5 py-1.5 text-xs font-medium text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/20">
-                팀 공유
+                공유
               </button>
             )}
             <button onClick={() => setEditing(true)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800">

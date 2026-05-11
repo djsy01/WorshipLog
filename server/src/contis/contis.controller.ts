@@ -99,12 +99,12 @@ export class ContisController {
   }
 
   @Post(':id/share')
-  shareWithTeam(
+  shareWithRoom(
     @CurrentUser('sub') userId: string,
     @Param('id') contiId: string,
     @Body() dto: ShareContiDto,
   ) {
-    return this.contisService.shareWithTeam(userId, contiId, dto.teamId);
+    return this.contisService.shareWithRoom(userId, contiId, dto.roomId);
   }
 
   @Delete(':id/share')

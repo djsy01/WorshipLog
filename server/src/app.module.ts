@@ -8,7 +8,8 @@ import { BibleModule } from './bible/bible.module';
 import { SpotifyModule } from './spotify/spotify.module';
 import { ContisModule } from './contis/contis.module';
 import { HistoryModule } from './history/history.module';
-import { TeamsModule } from './teams/teams.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { RoomsModule } from './rooms/rooms.module';
 import { PostsModule } from './posts/posts.module';
 import { UploadModule } from './uploads/upload.module';
 import { HealthController } from './health/health.controller';
@@ -24,7 +25,8 @@ import { HealthController } from './health/health.controller';
     SpotifyModule,
     ContisModule,
     HistoryModule,
-    TeamsModule,
+    OrganizationsModule,
+    RoomsModule,
     PostsModule,
     UploadModule,
   ],
