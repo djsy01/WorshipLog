@@ -27,6 +27,7 @@ export default function ContiEditPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [loadingRoomId, setLoadingRoomId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [cloning, setCloning] = useState(false);
 
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
@@ -112,6 +113,20 @@ export default function ContiEditPage() {
     }
   };
 
+  const handleClone = async () => {
+    const t = getToken();
+    if (!t) return;
+    setCloning(true);
+    try {
+      const cloned = await contisApi.clone(t, contiId);
+      router.push(`/dashboard/contis/${cloned.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '복제 실패');
+    } finally {
+      setCloning(false);
+    }
+  };
+
   const handlePrint = () => {
     const prev = document.title;
     document.title = conti?.title ?? 'WorshipLog';
@@ -163,17 +178,31 @@ export default function ContiEditPage() {
               </svg>
               콘티 목록으로 돌아가기
             </button>
-            {conti.createdBy === myUserId && (
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-500 shadow-sm transition hover:bg-red-50 dark:border-red-800 dark:bg-gray-900 dark:text-red-400 dark:hover:bg-red-900/20"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                삭제
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {conti.createdBy !== myUserId && (
+                <button
+                  onClick={handleClone}
+                  disabled={cloning}
+                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  {cloning ? '복제 중...' : '내 콘티로 복제'}
+                </button>
+              )}
+              {conti.createdBy === myUserId && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-500 shadow-sm transition hover:bg-red-50 dark:border-red-800 dark:bg-gray-900 dark:text-red-400 dark:hover:bg-red-900/20"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  삭제
+                </button>
+              )}
+            </div>
           </div>
 
           {error && (

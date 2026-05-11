@@ -296,6 +296,7 @@ function SongsContent() {
         onSheetFileChange={setSheetFile}
         onSheetRemove={handleSheetRemove}
         sheetRemoving={sheetRemoving}
+        isAdmin={userRole === 'admin'}
       />
     </div>
   );

@@ -235,7 +235,7 @@ export class OrganizationsService {
       },
       rooms: {
         orderBy: { createdAt: 'asc' as const },
-        select: { id: true, name: true, description: true, createdAt: true },
+        select: { id: true, name: true, description: true, createdAt: true, _count: { select: { messages: true } } },
       },
     };
   }

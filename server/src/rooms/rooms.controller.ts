@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Sse, MessageEvent } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { RoomsService } from './rooms.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -22,6 +23,18 @@ export class RoomsController {
   @Delete(':id')
   remove(@CurrentUser('sub') userId: string, @Param('id') roomId: string) {
     return this.roomsService.remove(userId, roomId);
+  }
+
+  @Get('stream/org')
+  @Sse()
+  orgStream(@CurrentUser('sub') _userId: string, @Query('orgId') orgId: string): Observable<MessageEvent> {
+    return this.roomsService.getOrgMessageStream(orgId);
+  }
+
+  @Get(':id/stream')
+  @Sse()
+  stream(@CurrentUser('sub') _userId: string, @Param('id') roomId: string): Observable<MessageEvent> {
+    return this.roomsService.getMessageStream(roomId);
   }
 
   @Get(':id/messages')

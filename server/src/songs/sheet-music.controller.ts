@@ -7,6 +7,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SheetMusicService } from './sheet-music.service';
@@ -34,15 +35,22 @@ export class SheetMusicController {
   )
   uploadSheet(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') songId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    if (userRole !== 'admin') throw new ForbiddenException('관리자만 악보를 업로드할 수 있습니다.');
     if (!file) throw new BadRequestException('파일이 없습니다.');
     return this.sheetMusicService.upload(userId, songId, file);
   }
 
   @Delete(':id/sheet')
-  deleteSheet(@CurrentUser('sub') userId: string, @Param('id') songId: string) {
+  deleteSheet(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') songId: string,
+  ) {
+    if (userRole !== 'admin') throw new ForbiddenException('관리자만 악보를 삭제할 수 있습니다.');
     return this.sheetMusicService.remove(userId, songId);
   }
 }

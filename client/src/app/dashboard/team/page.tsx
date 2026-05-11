@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { orgsApi, roomsApi, type Organization, type Message, type PendingInvite } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
@@ -25,6 +25,7 @@ export default function TeamPage() {
 
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId) ?? null;
   const selectedRoom = selectedOrg?.rooms.find((r) => r.id === selectedRoomId) ?? null;
@@ -121,7 +122,17 @@ export default function TeamPage() {
     const token = getToken();
     if (!token) return;
     try {
-      setOrgs(await orgsApi.list(token));
+      const loaded = await orgsApi.list(token);
+      setOrgs(loaded);
+      const counts: Record<string, number> = {};
+      for (const org of loaded) {
+        for (const room of org.rooms) {
+          const stored = parseInt(localStorage.getItem(`chatMsgCount_${room.id}`) ?? '0', 10);
+          const unread = Math.max(0, room._count.messages - stored);
+          if (unread > 0) counts[room.id] = unread;
+        }
+      }
+      setUnreadCounts(counts);
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패');
     } finally {
@@ -169,7 +180,9 @@ export default function TeamPage() {
     if (!token) return;
     setLoadingMessages(true);
     try {
-      setMessages([...(await roomsApi.getMessages(token, roomId))].reverse());
+      const ordered = [...(await roomsApi.getMessages(token, roomId))].reverse();
+      setMessages(ordered);
+      localStorage.setItem(`chatMsgCount_${roomId}`, ordered.length.toString());
     } finally {
       setLoadingMessages(false);
     }
@@ -192,6 +205,7 @@ export default function TeamPage() {
     setTab('chat');
     setMessages([]);
     setRoomContis([]);
+    setUnreadCounts((prev) => { const next = { ...prev }; delete next[roomId]; return next; });
     await loadMessages(roomId);
   }, [loadMessages]);
 
@@ -370,6 +384,60 @@ export default function TeamPage() {
 
   const token = typeof window !== 'undefined' ? (localStorage.getItem('accessToken') ?? '') : '';
 
+  const selectedRoomIdRef = useRef(selectedRoomId);
+  useEffect(() => { selectedRoomIdRef.current = selectedRoomId; }, [selectedRoomId]);
+
+  // 현재 방 메시지 폴링 (3초) — 새 메시지 자동 반영
+  useEffect(() => {
+    if (!selectedRoomId) return;
+    const roomId = selectedRoomId;
+    const poll = async () => {
+      const tok = localStorage.getItem('accessToken');
+      if (!tok) return;
+      try {
+        const ordered = [...(await roomsApi.getMessages(tok, roomId))].reverse();
+        setMessages((prev) => {
+          if (
+            prev.length === ordered.length &&
+            prev[prev.length - 1]?.id === ordered[ordered.length - 1]?.id
+          ) return prev;
+          localStorage.setItem(`chatMsgCount_${roomId}`, ordered.length.toString());
+          return ordered;
+        });
+      } catch { /* ignore */ }
+    };
+    const id = setInterval(poll, 3000);
+    return () => clearInterval(id);
+  }, [selectedRoomId]);
+
+  // 팀 목록 폴링 (10초) — 새 방 추가·미열람 뱃지 업데이트
+  useEffect(() => {
+    if (orgs.length === 0) return;
+    const poll = async () => {
+      const tok = localStorage.getItem('accessToken');
+      if (!tok) return;
+      try {
+        const loaded = await orgsApi.list(tok);
+        setOrgs(loaded);
+        setUnreadCounts((prev) => {
+          const next = { ...prev };
+          for (const org of loaded) {
+            for (const room of org.rooms) {
+              if (room.id === selectedRoomIdRef.current) continue;
+              const stored = parseInt(localStorage.getItem(`chatMsgCount_${room.id}`) ?? '0', 10);
+              const unread = Math.max(0, room._count.messages - stored);
+              if (unread > 0) next[room.id] = unread;
+              else delete next[room.id];
+            }
+          }
+          return next;
+        });
+      } catch { /* ignore */ }
+    };
+    const id = setInterval(poll, 10000);
+    return () => clearInterval(id);
+  }, [orgs.length]);
+
   if (loading) return <div className="py-12 text-center">로딩 중...</div>;
 
   return (
@@ -403,6 +471,7 @@ export default function TeamPage() {
                 onViewMembers={(orgId) => setMembersOrgId(orgId)}
                 onMoveOrg={moveOrg}
                 onMoveRoom={moveRoom}
+                unreadCounts={unreadCounts}
               />
             )}
           </div>
@@ -418,7 +487,11 @@ export default function TeamPage() {
               loadingMessages={loadingMessages}
               myUserId={myUserId}
               token={token}
-              onNewMessage={(msg) => setMessages((prev) => [...prev, msg])}
+              onNewMessage={(msg) => setMessages((prev) => {
+                const next = [...prev, msg];
+                if (selectedRoomId) localStorage.setItem(`chatMsgCount_${selectedRoomId}`, next.length.toString());
+                return next;
+              })}
               onDeleteMessage={(id) => setMessages((prev) => prev.filter((m) => m.id !== id))}
               roomContis={roomContis}
               loadingContis={loadingContis}

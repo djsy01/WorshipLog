@@ -26,7 +26,7 @@ export default function PdfSheetViewerClient({ url, songHeader, contiTitle, cont
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            ...(i > 0 ? { pageBreakBefore: 'always', padding: '8px 24px 16px' } : {}),
+            ...(i > 0 ? { pageBreakBefore: 'always', padding: '8mm 0 0' } : {}),
           }}
         >
           {i > 0 && contiTitle && (
@@ -36,11 +36,10 @@ export default function PdfSheetViewerClient({ url, songHeader, contiTitle, cont
             </div>
           )}
           {songHeader && (
-            <table style={{ width: '800px', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '12px', tableLayout: 'fixed' }}>
+            <table style={{ width: '600px', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '13px', tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: i > 0 ? '68px' : '44px' }} />
+                <col style={{ width: '68px' }} />
                 <col />
-                {songHeader.artist && <col style={{ width: '100px' }} />}
                 <col style={{ width: '38px' }} />
                 <col style={{ width: '52px' }} />
                 <col style={{ width: '50px' }} />
@@ -61,11 +60,8 @@ export default function PdfSheetViewerClient({ url, songHeader, contiTitle, cont
                     {songHeader.num}번{i > 0 ? ` (${i + 1}p)` : ''}
                   </td>
                   <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', fontWeight: 'bold', fontSize: '13px', overflow: 'hidden' }}>
-                    {songHeader.title}
+                    {songHeader.title}{songHeader.artist ? ` - ${songHeader.artist}` : ''}
                   </td>
-                  {songHeader.artist && (
-                    <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', color: '#555', overflow: 'hidden' }}>{songHeader.artist}</td>
-                  )}
                   <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', fontWeight: 'bold', color: '#7c3aed', textAlign: 'center' }}>Key</td>
                   <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', textAlign: 'center', color: '#333' }}>{songHeader.key ?? '-'}</td>
                   <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', fontWeight: 'bold', color: '#7c3aed', textAlign: 'center' }}>
@@ -80,7 +76,10 @@ export default function PdfSheetViewerClient({ url, songHeader, contiTitle, cont
                     <td style={{ border: '1px solid #d1d5db', padding: '4px 8px', fontWeight: 'bold', color: '#7c3aed', textAlign: 'center' }}>
                       송폼
                     </td>
-                    <td colSpan={songHeader.artist ? 6 : 5} style={{ border: '1px solid #d1d5db', padding: '4px 8px', color: '#333' }}>
+                    <td
+                      colSpan={5}
+                      style={{ border: '1px solid #d1d5db', padding: '6px 8px', color: '#333', fontSize: '15px' }}
+                    >
                       {songHeader.note}
                     </td>
                   </tr>
@@ -88,7 +87,7 @@ export default function PdfSheetViewerClient({ url, songHeader, contiTitle, cont
               </tbody>
             </table>
           )}
-          <Page pageNumber={i + 1} width={800} renderTextLayer={false} renderAnnotationLayer={false} />
+          <Page pageNumber={i + 1} width={600} renderTextLayer={false} renderAnnotationLayer={false} />
         </div>
       ))}
     </Document>

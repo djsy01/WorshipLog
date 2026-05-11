@@ -14,6 +14,7 @@ export interface OrgRoom {
   name: string;
   description: string | null;
   createdAt: string;
+  _count: { messages: number };
 }
 
 export interface Organization {

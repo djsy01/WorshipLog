@@ -98,6 +98,11 @@ export class ContisController {
     return this.contisService.reorderSongs(userId, contiId, dto.ids);
   }
 
+  @Post(':id/clone')
+  clone(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.contisService.clone(userId, id);
+  }
+
   @Post(':id/share')
   shareWithRoom(
     @CurrentUser('sub') userId: string,
