@@ -1,10 +1,36 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, MessageEvent } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
+import { Subject, Observable } from 'rxjs';
 
 @Injectable()
 export class RoomsService {
+  private readonly roomStreams = new Map<string, Subject<MessageEvent>>();
+  private readonly orgStreams = new Map<string, Subject<MessageEvent>>();
+
   constructor(private prisma: PrismaService) {}
+
+  private getRoomStream(roomId: string): Subject<MessageEvent> {
+    if (!this.roomStreams.has(roomId)) {
+      this.roomStreams.set(roomId, new Subject<MessageEvent>());
+    }
+    return this.roomStreams.get(roomId)!;
+  }
+
+  getMessageStream(roomId: string): Observable<MessageEvent> {
+    return this.getRoomStream(roomId).asObservable();
+  }
+
+  private getOrgStream(orgId: string): Subject<MessageEvent> {
+    if (!this.orgStreams.has(orgId)) {
+      this.orgStreams.set(orgId, new Subject<MessageEvent>());
+    }
+    return this.orgStreams.get(orgId)!;
+  }
+
+  getOrgMessageStream(orgId: string): Observable<MessageEvent> {
+    return this.getOrgStream(orgId).asObservable();
+  }
 
   async create(userId: string, dto: CreateRoomDto) {
     const member = await this.prisma.orgMember.findUnique({
@@ -77,10 +103,13 @@ export class RoomsService {
     });
     if (!member) throw new ForbiddenException('조직 멤버가 아닙니다.');
 
-    return this.prisma.message.create({
+    const message = await this.prisma.message.create({
       data: { roomId, userId, content: dto.content, fileUrl: dto.fileUrl ?? null },
       include: { user: { select: { id: true, name: true } } },
     });
+    this.getRoomStream(roomId).next({ data: message });
+    this.getOrgStream(room.orgId).next({ data: message });
+    return message;
   }
 
   async deleteMessage(userId: string, roomId: string, messageId: string) {

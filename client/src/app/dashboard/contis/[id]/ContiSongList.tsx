@@ -62,7 +62,6 @@ export default function ContiSongList({ conti, contiId, token, onMove, onRemoveS
           </button>
         </div>
       </div>
-      <p className="sm:hidden print:hidden mb-3 text-[11px] text-gray-400">💡 PDF 저장 시 크기 조절을 79%로 설정하세요</p>
 
       {conti.songs.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center dark:border-gray-700">

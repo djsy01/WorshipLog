@@ -13,9 +13,10 @@ interface Props {
   onViewMembers: (orgId: string) => void;
   onMoveOrg: (orgId: string, direction: 'up' | 'down') => void;
   onMoveRoom: (orgId: string, roomId: string, direction: 'up' | 'down') => void;
+  unreadCounts: Record<string, number>;
 }
 
-export function TeamList({ orgs, selectedRoomId, onSelectRoom, myUserId, onCreateInvite, onLeaveOrg, onCreateRoom, onDeleteRoom, onViewMembers, onMoveOrg, onMoveRoom }: Props) {
+export function TeamList({ orgs, selectedRoomId, onSelectRoom, myUserId, onCreateInvite, onLeaveOrg, onCreateRoom, onDeleteRoom, onViewMembers, onMoveOrg, onMoveRoom, unreadCounts }: Props) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const closeMenu = () => setOpenMenuId(null);
@@ -107,19 +108,23 @@ export function TeamList({ orgs, selectedRoomId, onSelectRoom, myUserId, onCreat
                 {org.rooms.map((room, roomIdx) => (
                   <div
                     key={room.id}
-                    className={`group flex items-center justify-between rounded-lg px-2 py-1.5 cursor-pointer transition ${
+                    className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 cursor-pointer transition ${
                       selectedRoomId === room.id
                         ? 'bg-violet-50 dark:bg-violet-900/20'
                         : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                     onClick={() => onSelectRoom(room.id, org.id)}
                   >
-                    <span className={`text-sm truncate ${selectedRoomId === room.id ? 'font-semibold text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <span className={`min-w-0 flex-1 truncate text-sm ${selectedRoomId === room.id ? 'font-semibold text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>
                       # {room.name}
                     </span>
-                    <div className={`${openMenuId === `room-${room.id}` ? 'flex' : 'hidden group-hover:flex'} items-center gap-0.5 shrink-0`}>
-                      {/* 채팅방 순서 드롭다운 */}
-                      {canManageRooms && (
+                    {(unreadCounts[room.id] ?? 0) > 0 && selectedRoomId !== room.id && (
+                      <span className="shrink-0 rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        {unreadCounts[room.id] > 99 ? '99+' : unreadCounts[room.id]}
+                      </span>
+                    )}
+                    {canManageRooms && (
+                      <div className={`${openMenuId === `room-${room.id}` ? 'flex' : 'hidden group-hover:flex'} shrink-0 items-center gap-0.5`}>
                         <div className="relative">
                           <button
                             onClick={(e) => toggleMenu(`room-${room.id}`, e)}
@@ -155,9 +160,8 @@ export function TeamList({ orgs, selectedRoomId, onSelectRoom, myUserId, onCreat
                             </div>
                           )}
                         </div>
-                      )}
-                      {!canManageRooms && null}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {canManageRooms && (

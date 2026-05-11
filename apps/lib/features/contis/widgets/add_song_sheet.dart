@@ -49,6 +49,76 @@ class _AddSongSheetState extends State<AddSongSheet> {
     }
   }
 
+  Future<void> _showCreateSong({String initialTitle = ''}) async {
+    final titleCtrl = TextEditingController(text: initialTitle);
+    final artistCtrl = TextEditingController();
+    final tempoCtrl = TextEditingController();
+    String? selectedKey;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('새 찬양 등록'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: '곡명 *')),
+              const SizedBox(height: 8),
+              TextField(controller: artistCtrl, decoration: const InputDecoration(labelText: '아티스트 / 찬양팀 *')),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: selectedKey,
+                decoration: const InputDecoration(labelText: '기본 키'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('선택 안함')),
+                  ..._kKeys.map((k) => DropdownMenuItem(value: k, child: Text(k))),
+                ],
+                onChanged: (v) => setDlg(() => selectedKey = v),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: tempoCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'BPM'),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+            FilledButton(
+              onPressed: () {
+                if (titleCtrl.text.trim().isEmpty || artistCtrl.text.trim().isEmpty) return;
+                Navigator.pop(ctx, {
+                  'title': titleCtrl.text.trim(),
+                  'artist': artistCtrl.text.trim(),
+                  if (selectedKey case final k?) 'defaultKey': k,
+                  if (tempoCtrl.text.isNotEmpty && int.tryParse(tempoCtrl.text) != null)
+                    'tempo': int.parse(tempoCtrl.text),
+                  'isPublic': true,
+                });
+              },
+              child: const Text('등록'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    try {
+      final res = await dio.post('songs', data: result);
+      final song = Map<String, dynamic>.from(res.data as Map);
+      setState(() {
+        _songs.insert(0, song);
+        _selected = song;
+        _selectedKey = song['defaultKey'] as String? ?? '';
+        _search = '';
+      });
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('등록 실패: $e')));
+    }
+  }
+
   Future<void> _add() async {
     final sel = _selected;
     if (sel == null) return;
@@ -101,6 +171,11 @@ class _AddSongSheetState extends State<AddSongSheet> {
               children: [
                 const Text('찬양 추가', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _showCreateSong(),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('새 찬양 등록', style: TextStyle(fontSize: 13)),
+                ),
                 IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
               ],
             ),
@@ -121,7 +196,25 @@ class _AddSongSheetState extends State<AddSongSheet> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
+                : filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _search.isEmpty ? '등록된 찬양이 없습니다.' : '검색 결과가 없습니다.',
+                              style: TextStyle(color: cs.onSurface.withValues(alpha: 0.4), fontSize: 14),
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: () => _showCreateSong(initialTitle: _search),
+                              icon: const Icon(Icons.add, size: 16),
+                              label: Text(_search.isEmpty ? '새 찬양 등록하기' : '"$_search" 등록하기'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemCount: filtered.length,
                     itemBuilder: (context, i) {

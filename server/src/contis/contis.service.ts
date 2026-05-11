@@ -166,6 +166,29 @@ export class ContisService {
     return { message: '삭제되었습니다.' };
   }
 
+  async clone(userId: string, contiId: string) {
+    const original = await this.findOne(userId, contiId);
+    const cloned = await this.prisma.conti.create({
+      data: {
+        title: `${original.title} (복제)`,
+        description: original.description ?? undefined,
+        worshipDate: original.worshipDate ? new Date(original.worshipDate) : undefined,
+        createdBy: userId,
+        songs: {
+          create: original.songs.map((cs, i) => ({
+            songId: cs.songId,
+            key: cs.key ?? undefined,
+            tempo: cs.tempo ?? undefined,
+            note: cs.note ?? undefined,
+            orderIndex: i,
+          })),
+        },
+      },
+      include: CONTI_INCLUDE,
+    });
+    return cloned;
+  }
+
   async reorderSongs(userId: string, contiId: string, ids: string[]) {
     await this.assertOwner(userId, contiId);
     await this.prisma.$transaction([

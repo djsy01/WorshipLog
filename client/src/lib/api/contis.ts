@@ -77,6 +77,9 @@ export const contisApi = {
   deleteContiSheet: (token: string, contiId: string, contiSongId: string, sheetId: string) =>
     request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}/sheet/${sheetId}`, { method: 'DELETE', headers: authHeaders(token) }),
 
+  clone: (token: string, contiId: string) =>
+    request<Conti>(`/contis/${contiId}/clone`, { method: 'POST', headers: authHeaders(token) }),
+
   share: (token: string, contiId: string, roomId: string) =>
     request<Conti>(`/contis/${contiId}/share`, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ roomId }) }),
 

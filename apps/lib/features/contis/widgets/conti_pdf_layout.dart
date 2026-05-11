@@ -28,13 +28,12 @@ pw.Document buildContiPdfDoc(
     final bpm = cs.tempo ?? cs.song.tempo;
     final songKey = cs.key ?? cs.song.defaultKey;
     final borderSide = const pw.BorderSide(color: borderColor, width: 1);
-    final hasArtist = cs.song.artist != null && cs.song.artist!.isNotEmpty;
     final songFormItems = [if (cs.note != null && cs.note!.isNotEmpty) cs.note!];
 
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(32),
-      header: (_) => _buildHeader(conti, cs, i, bpm, songKey, borderColor, borderSide, hasArtist, songFormItems, ttf),
+      header: (_) => _buildHeader(conti, cs, i, bpm, songKey, borderColor, borderSide, songFormItems, ttf),
       build: (_) => _buildBody(i, songImages, errorMsgs, ttf),
     ));
   }
@@ -50,13 +49,14 @@ pw.Widget _buildHeader(
   String? songKey,
   PdfColor borderColor,
   pw.BorderSide borderSide,
-  bool hasArtist,
   List<String> songFormItems,
   pw.Font ttf,
 ) {
   const purple = PdfColor.fromInt(0xFF7C3AED);
-  const grey = PdfColor.fromInt(0xFF555555);
   const dark = PdfColor.fromInt(0xFF333333);
+  final titleText = cs.song.artist != null && cs.song.artist!.isNotEmpty
+      ? '${cs.song.title} - ${cs.song.artist}'
+      : cs.song.title;
 
   return pw.Column(
     mainAxisSize: pw.MainAxisSize.min,
@@ -80,21 +80,18 @@ pw.Widget _buildHeader(
       ),
       pw.Table(
         border: pw.TableBorder.all(color: borderColor, width: 1),
-        columnWidths: {
-          0: const pw.FixedColumnWidth(44),
-          1: const pw.FlexColumnWidth(),
-          if (hasArtist) 2: const pw.FixedColumnWidth(100),
-          if (hasArtist) 3: const pw.FixedColumnWidth(40) else 2: const pw.FixedColumnWidth(40),
-          if (hasArtist) 4: const pw.FixedColumnWidth(45) else 3: const pw.FixedColumnWidth(45),
-          if (hasArtist) 5: const pw.FixedColumnWidth(55) else 4: const pw.FixedColumnWidth(55),
-          if (hasArtist) 6: const pw.FixedColumnWidth(75) else 5: const pw.FixedColumnWidth(75),
+        columnWidths: const {
+          0: pw.FixedColumnWidth(68),
+          1: pw.FlexColumnWidth(),
+          2: pw.FixedColumnWidth(40),
+          3: pw.FixedColumnWidth(45),
+          4: pw.FixedColumnWidth(55),
+          5: pw.FixedColumnWidth(75),
         },
         children: [
           pw.TableRow(children: [
             _cell(pw.Text('${i + 1}번', style: pw.TextStyle(font: ttf, fontSize: 12, fontWeight: pw.FontWeight.bold, color: purple)), center: true, hPad: 4),
-            _cell(pw.Text(cs.song.title, style: pw.TextStyle(font: ttf, fontSize: 13, fontWeight: pw.FontWeight.bold))),
-            if (hasArtist)
-              _cell(pw.Text(cs.song.artist!, maxLines: 1, style: pw.TextStyle(font: ttf, fontSize: 12, color: grey))),
+            _cell(pw.Text(titleText, style: pw.TextStyle(font: ttf, fontSize: 13, fontWeight: pw.FontWeight.bold))),
             _cell(pw.Text('Key', style: pw.TextStyle(font: ttf, fontSize: 12, fontWeight: pw.FontWeight.bold, color: purple)), center: true, hPad: 4),
             _cell(pw.Text((songKey != null && songKey.isNotEmpty) ? songKey : '-', style: pw.TextStyle(font: ttf, fontSize: 12, color: dark)), center: true, hPad: 4),
             _cell(pw.Text('tempo', style: pw.TextStyle(font: ttf, fontSize: 12, fontWeight: pw.FontWeight.bold, color: purple)), center: true, hPad: 4),
@@ -105,11 +102,11 @@ pw.Widget _buildHeader(
       if (songFormItems.isNotEmpty)
         pw.Table(
           border: pw.TableBorder(left: borderSide, right: borderSide, bottom: borderSide, verticalInside: borderSide),
-          columnWidths: {0: const pw.FixedColumnWidth(44), 1: const pw.FlexColumnWidth()},
+          columnWidths: const {0: pw.FixedColumnWidth(68), 1: pw.FlexColumnWidth()},
           children: [
             pw.TableRow(children: [
               _cell(pw.Text('송폼', style: pw.TextStyle(font: ttf, fontSize: 12, fontWeight: pw.FontWeight.bold, color: purple)), center: true),
-              _cell(pw.Text(songFormItems.join('  |  '), style: pw.TextStyle(font: ttf, fontSize: 12, color: dark))),
+              _cell(pw.Text(songFormItems.join('  |  '), style: pw.TextStyle(font: ttf, fontSize: 15, color: dark))),
             ]),
           ],
         ),
