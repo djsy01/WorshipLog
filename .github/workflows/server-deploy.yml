@@ -16,10 +16,9 @@ jobs:
           username: ubuntu # 우분투 계정명
           key: ${{ secrets.SSH_KEY }} # SSH 개인키
           script: |
-            cd ~/WorshipLog/server       # 서버 내 프로젝트 폴더로 이동
-            git pull origin main         # 최신 코드 가져오기
-            npm install                  # 패키지 설치
-            npx prisma generate          # Prisma 클라이언트 생성
-            npx prisma migrate deploy    # Supabase DB 테이블 구조 업데이트
-            npm run build                # NestJS 빌드
-            pm2 restart all              # 서버 재시작 (PM2 사용 시)
+            cd ~/WorshipLog/server
+            git pull origin dev
+            npm install
+            npx prisma generate
+            npm run build
+            pm2 restart worshiplog-server
