@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { contisApi, orgsApi, type Conti, type ContiSong, type Organization } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
+import ConfirmModal from '@/components/ConfirmModal';
 import ContiPrintLayout from './ContiPrintLayout';
 import ContiInfoCard from './ContiInfoCard';
 import ContiSongList from './ContiSongList';
@@ -24,7 +25,8 @@ export default function ContiEditPage() {
   const [myUserId, setMyUserId] = useState('');
   const [myOrgs, setMyOrgs] = useState<Organization[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [sharing, setSharing] = useState(false);
+  const [loadingRoomId, setLoadingRoomId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
@@ -53,32 +55,19 @@ export default function ContiEditPage() {
     loadConti();
   }, [loadConti]);
 
-  const handleShare = async (roomId: string) => {
+  const handleToggleShare = async (roomId: string, isShared: boolean) => {
     const token = getToken();
     if (!token) return;
-    setSharing(true);
+    setLoadingRoomId(roomId);
     try {
-      const updated = await contisApi.share(token, contiId, roomId);
-      setConti(updated);
-      setShowShareModal(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '공유 실패');
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  const handleUnshare = async () => {
-    const token = getToken();
-    if (!token) return;
-    setSharing(true);
-    try {
-      const updated = await contisApi.unshare(token, contiId);
+      const updated = isShared
+        ? await contisApi.unshareFrom(token, contiId, roomId)
+        : await contisApi.share(token, contiId, roomId);
       setConti(updated);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '공유 해제 실패');
+      setError(e instanceof Error ? e.message : '공유 처리 실패');
     } finally {
-      setSharing(false);
+      setLoadingRoomId(null);
     }
   };
 
@@ -108,6 +97,18 @@ export default function ContiEditPage() {
       await loadConti();
     } catch (e) {
       setError(e instanceof Error ? e.message : '삭제 실패');
+    }
+  };
+
+  const handleDelete = async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await contisApi.remove(token, contiId);
+      router.replace('/dashboard/contis');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '삭제 실패');
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -152,15 +153,28 @@ export default function ContiEditPage() {
       <div className="print:hidden">
         <AppHeader page="콘티 편집" />
         <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-          <button
-            onClick={() => router.back()}
-            className="print:hidden mb-6 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-              <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0" />
-            </svg>
-            콘티 목록으로 돌아가기
-          </button>
+          <div className="print:hidden mb-6 flex items-center justify-between">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-violet-300 hover:text-violet-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-violet-600 dark:hover:text-violet-400"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0" />
+              </svg>
+              콘티 목록으로 돌아가기
+            </button>
+            {conti.createdBy === myUserId && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-500 shadow-sm transition hover:bg-red-50 dark:border-red-800 dark:bg-gray-900 dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                삭제
+              </button>
+            )}
+          </div>
 
           {error && (
             <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
@@ -175,9 +189,7 @@ export default function ContiEditPage() {
             token={token}
             myUserId={myUserId}
             myOrgs={myOrgs}
-            sharing={sharing}
             onUpdate={setConti}
-            onUnshare={handleUnshare}
             onShowShare={() => setShowShareModal(true)}
           />
           <ContiSongList
@@ -212,12 +224,24 @@ export default function ContiEditPage() {
           onClose={() => setEditingCs(null)}
         />
       )}
-      {showShareModal && (
+      {showShareModal && conti && (
         <ShareModal
           orgs={myOrgs}
-          sharing={sharing}
-          onShare={handleShare}
+          myUserId={myUserId}
+          sharedRoomIds={conti.shares.map((s) => s.roomId)}
+          loadingRoomId={loadingRoomId}
+          onToggle={handleToggleShare}
           onClose={() => setShowShareModal(false)}
+        />
+      )}
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="콘티 삭제"
+          message="이 콘티를 삭제하면 복구할 수 없습니다."
+          confirmText="삭제"
+          destructive
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
         />
       )}
     </div>

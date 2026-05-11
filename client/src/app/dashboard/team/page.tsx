@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { orgsApi, roomsApi, type Organization, type Message, type PendingInvite } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
@@ -11,6 +11,7 @@ import { TeamCreateModal } from './TeamCreateModal';
 import { TeamJoinModal } from './TeamJoinModal';
 import { TeamInviteModal } from './TeamInviteModal';
 import { RoomCreateModal } from './RoomCreateModal';
+import { TeamMembersModal } from './TeamMembersModal';
 
 type Tab = 'chat' | 'conti';
 
@@ -48,6 +49,67 @@ export default function TeamPage() {
   const [roomCreateOrgId, setRoomCreateOrgId] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+
+  const [membersOrgId, setMembersOrgId] = useState<string | null>(null);
+  const membersOrg = orgs.find((o) => o.id === membersOrgId) ?? null;
+  const [memberActionLoading, setMemberActionLoading] = useState<string | null>(null);
+
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message?: string;
+    confirmText?: string;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const [orgOrder, setOrgOrder] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('teamOrgOrder') ?? '[]'); } catch { return []; }
+  });
+  const [roomOrders, setRoomOrders] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem('teamRoomOrders') ?? '{}'); } catch { return {}; }
+  });
+
+  const orderedOrgs = useMemo(() => {
+    const orderMap = new Map(orgOrder.map((id, i) => [id, i]));
+    return [...orgs]
+      .sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999))
+      .map((org) => {
+        const roomOrder = roomOrders[org.id];
+        if (!roomOrder) return org;
+        const roomMap = new Map(roomOrder.map((id, i) => [id, i]));
+        return { ...org, rooms: [...org.rooms].sort((a, b) => (roomMap.get(a.id) ?? 9999) - (roomMap.get(b.id) ?? 9999)) };
+      });
+  }, [orgs, orgOrder, roomOrders]);
+
+  const moveOrg = useCallback((orgId: string, direction: 'up' | 'down') => {
+    setOrgOrder((prev) => {
+      const base = prev.length > 0 ? prev : orgs.map((o) => o.id);
+      const idx = base.indexOf(orgId);
+      if (idx === -1) return base;
+      const next = [...base];
+      const swap = direction === 'up' ? idx - 1 : idx + 1;
+      if (swap < 0 || swap >= next.length) return next;
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      localStorage.setItem('teamOrgOrder', JSON.stringify(next));
+      return next;
+    });
+  }, [orgs]);
+
+  const moveRoom = useCallback((orgId: string, roomId: string, direction: 'up' | 'down') => {
+    setRoomOrders((prev) => {
+      const org = orgs.find((o) => o.id === orgId);
+      const base = prev[orgId] ?? org?.rooms.map((r) => r.id) ?? [];
+      const idx = base.indexOf(roomId);
+      if (idx === -1) return prev;
+      const next = [...base];
+      const swap = direction === 'up' ? idx - 1 : idx + 1;
+      if (swap < 0 || swap >= next.length) return prev;
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      const updated = { ...prev, [orgId]: next };
+      localStorage.setItem('teamRoomOrders', JSON.stringify(updated));
+      return updated;
+    });
+  }, [orgs]);
 
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
@@ -185,22 +247,90 @@ export default function TeamPage() {
     }
   };
 
-  const handleLeaveOrg = async (org: Organization) => {
+  const handleLeaveOrg = (org: Organization) => {
     const isLeader = org.createdBy === myUserId;
-    const msg = isLeader ? `"${org.name}" 팀을 삭제하시겠습니까?` : `"${org.name}"에서 나가시겠습니까?`;
-    if (!confirm(msg)) return;
+    setConfirmModal({
+      title: isLeader ? `"${org.name}" 팀 삭제` : `"${org.name}" 나가기`,
+      message: isLeader ? '팀을 삭제하면 모든 채팅방이 함께 삭제됩니다.' : '팀에서 나가시겠습니까?',
+      confirmText: isLeader ? '삭제' : '나가기',
+      destructive: true,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const token = getToken();
+        if (!token) return;
+        try {
+          if (isLeader) {
+            await orgsApi.remove(token, org.id);
+          } else {
+            await orgsApi.leave(token, org.id);
+          }
+          setOrgs((prev) => prev.filter((o) => o.id !== org.id));
+          if (selectedOrgId === org.id) { setSelectedOrgId(null); setSelectedRoomId(null); }
+        } catch (e) {
+          setError(e instanceof Error ? e.message : '실패');
+        }
+      },
+    });
+  };
+
+  const handleKickMember = (orgId: string, memberUserId: string) => {
+    setConfirmModal({
+      title: '멤버 추방',
+      message: '해당 멤버를 팀에서 추방하시겠습니까?',
+      confirmText: '추방',
+      destructive: true,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const token = getToken();
+        if (!token) return;
+        setMemberActionLoading(memberUserId);
+        try {
+          await orgsApi.kickMember(token, orgId, memberUserId);
+          setOrgs((prev) =>
+            prev.map((o) => o.id === orgId ? { ...o, members: o.members.filter((m) => m.userId !== memberUserId) } : o),
+          );
+        } catch (e) {
+          setError(e instanceof Error ? e.message : '추방 실패');
+        } finally {
+          setMemberActionLoading(null);
+        }
+      },
+    });
+  };
+
+  const handleTransferLeader = (orgId: string, memberUserId: string) => {
+    setConfirmModal({
+      title: '방장 이전',
+      message: '방장 권한을 이 멤버에게 이전하시겠습니까? 이전 후 회원님은 일반 멤버가 됩니다.',
+      confirmText: '이전',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const token = getToken();
+        if (!token) return;
+        setMemberActionLoading(memberUserId);
+        try {
+          const updated = await orgsApi.transferLeader(token, orgId, memberUserId);
+          setOrgs((prev) => prev.map((o) => o.id === orgId ? updated : o));
+        } catch (e) {
+          setError(e instanceof Error ? e.message : '방장 이전 실패');
+        } finally {
+          setMemberActionLoading(null);
+        }
+      },
+    });
+  };
+
+  const handleSetSubLeader = async (orgId: string, memberUserId: string, isSubLeader: boolean) => {
     const token = getToken();
     if (!token) return;
+    setMemberActionLoading(memberUserId);
     try {
-      if (isLeader) {
-        await orgsApi.remove(token, org.id);
-      } else {
-        await orgsApi.leave(token, org.id);
-      }
-      setOrgs((prev) => prev.filter((o) => o.id !== org.id));
-      if (selectedOrgId === org.id) { setSelectedOrgId(null); setSelectedRoomId(null); }
+      const updated = await orgsApi.setSubLeader(token, orgId, memberUserId, isSubLeader);
+      setOrgs((prev) => prev.map((o) => o.id === orgId ? updated : o));
     } catch (e) {
-      setError(e instanceof Error ? e.message : '실패');
+      setError(e instanceof Error ? e.message : '부방장 설정 실패');
+    } finally {
+      setMemberActionLoading(null);
     }
   };
 
@@ -215,19 +345,27 @@ export default function TeamPage() {
     setRoomCreateOrgId(null);
   };
 
-  const handleDeleteRoom = async (roomId: string) => {
-    if (!confirm('채팅방을 삭제하시겠습니까?')) return;
-    const token = getToken();
-    if (!token) return;
-    try {
-      await roomsApi.remove(token, roomId);
-      setOrgs((prev) =>
-        prev.map((o) => ({ ...o, rooms: o.rooms.filter((r) => r.id !== roomId) }))
-      );
-      if (selectedRoomId === roomId) { setSelectedRoomId(null); setSelectedOrgId(null); }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '삭제 실패');
-    }
+  const handleDeleteRoom = (roomId: string) => {
+    setConfirmModal({
+      title: '채팅방 삭제',
+      message: '채팅방을 삭제하면 모든 메시지가 함께 삭제됩니다.',
+      confirmText: '삭제',
+      destructive: true,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const token = getToken();
+        if (!token) return;
+        try {
+          await roomsApi.remove(token, roomId);
+          setOrgs((prev) =>
+            prev.map((o) => ({ ...o, rooms: o.rooms.filter((r) => r.id !== roomId) }))
+          );
+          if (selectedRoomId === roomId) { setSelectedRoomId(null); setSelectedOrgId(null); }
+        } catch (e) {
+          setError(e instanceof Error ? e.message : '삭제 실패');
+        }
+      },
+    });
   };
 
   const token = typeof window !== 'undefined' ? (localStorage.getItem('accessToken') ?? '') : '';
@@ -254,7 +392,7 @@ export default function TeamPage() {
               <p className="text-center text-sm text-gray-400 py-4">팀이 없습니다.<br />팀을 생성하거나 참여하세요.</p>
             ) : (
               <TeamList
-                orgs={orgs}
+                orgs={orderedOrgs}
                 selectedRoomId={selectedRoomId}
                 onSelectRoom={selectRoom}
                 myUserId={myUserId}
@@ -262,6 +400,9 @@ export default function TeamPage() {
                 onLeaveOrg={handleLeaveOrg}
                 onCreateRoom={(orgId) => setRoomCreateOrgId(orgId)}
                 onDeleteRoom={handleDeleteRoom}
+                onViewMembers={(orgId) => setMembersOrgId(orgId)}
+                onMoveOrg={moveOrg}
+                onMoveRoom={moveRoom}
               />
             )}
           </div>
@@ -321,6 +462,27 @@ export default function TeamPage() {
       )}
       {roomCreateOrgId && (
         <RoomCreateModal onSubmit={handleCreateRoom} onClose={() => setRoomCreateOrgId(null)} />
+      )}
+      {membersOrg && (
+        <TeamMembersModal
+          org={membersOrg}
+          myUserId={myUserId}
+          actionLoading={memberActionLoading}
+          onKick={(memberUserId) => handleKickMember(membersOrg.id, memberUserId)}
+          onTransfer={(memberUserId) => handleTransferLeader(membersOrg.id, memberUserId)}
+          onSetSubLeader={(memberUserId, isSubLeader) => handleSetSubLeader(membersOrg.id, memberUserId, isSubLeader)}
+          onClose={() => setMembersOrgId(null)}
+        />
+      )}
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmText={confirmModal.confirmText}
+          destructive={confirmModal.destructive}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
       {error && (
         <div className="fixed bottom-4 right-4 rounded-lg bg-red-50 p-4 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">

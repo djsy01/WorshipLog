@@ -178,12 +178,34 @@ export class OrganizationsService {
   }
 
   async kickMember(userId: string, orgId: string, targetUserId: string) {
-    const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
-    if (!org) throw new NotFoundException('조직을 찾을 수 없습니다.');
-    if (org.createdBy !== userId) throw new ForbiddenException('팀장만 추방할 수 있습니다.');
     if (targetUserId === userId) throw new BadRequestException('자기 자신을 추방할 수 없습니다.');
+    const actor = await this.prisma.orgMember.findUnique({ where: { orgId_userId: { orgId, userId } } });
+    if (!actor || (actor.role !== 'leader' && actor.role !== 'sub_leader')) {
+      throw new ForbiddenException('방장 또는 부방장만 추방할 수 있습니다.');
+    }
+    const target = await this.prisma.orgMember.findUnique({ where: { orgId_userId: { orgId, userId: targetUserId } } });
+    if (!target) throw new NotFoundException('해당 멤버가 없습니다.');
+    if (actor.role === 'sub_leader' && target.role !== 'member') {
+      throw new ForbiddenException('부방장은 일반 멤버만 추방할 수 있습니다.');
+    }
+    if (target.role === 'leader') throw new ForbiddenException('방장은 추방할 수 없습니다.');
     await this.prisma.orgMember.delete({ where: { orgId_userId: { orgId, userId: targetUserId } } });
     return { message: '추방되었습니다.' };
+  }
+
+  async setSubLeader(userId: string, orgId: string, targetUserId: string, isSubLeader: boolean) {
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
+    if (!org) throw new NotFoundException('조직을 찾을 수 없습니다.');
+    if (org.createdBy !== userId) throw new ForbiddenException('팀장만 부방장을 설정할 수 있습니다.');
+    if (targetUserId === userId) throw new BadRequestException('자기 자신에게 설정할 수 없습니다.');
+    const target = await this.prisma.orgMember.findUnique({ where: { orgId_userId: { orgId, userId: targetUserId } } });
+    if (!target) throw new NotFoundException('해당 멤버가 없습니다.');
+    if (target.role === 'leader') throw new BadRequestException('방장의 역할은 변경할 수 없습니다.');
+    await this.prisma.orgMember.update({
+      where: { orgId_userId: { orgId, userId: targetUserId } },
+      data: { role: isSubLeader ? 'sub_leader' : 'member' },
+    });
+    return this.prisma.organization.findUnique({ where: { id: orgId }, include: this.orgInclude() });
   }
 
   async transferLeader(userId: string, orgId: string, targetUserId: string) {

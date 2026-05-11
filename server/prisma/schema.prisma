@@ -27,6 +27,7 @@ model User {
   messages       Message[]
   songs          Song[]
   contis         Conti[]
+  contiShares    ContiShare[]
   history        History[]
   meditations    Meditation[]
   globalPosts    Post[]
@@ -93,10 +94,11 @@ model Room {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  creator  User         @relation("RoomCreator", fields: [createdBy], references: [id])
-  messages Message[]
-  contis   Conti[]
+  org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator     User          @relation("RoomCreator", fields: [createdBy], references: [id])
+  messages    Message[]
+  contis      Conti[]
+  contiShares ContiShare[]
 
   @@map("rooms")
 }
@@ -149,8 +151,24 @@ model Conti {
   creator User        @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   songs   ContiSong[]
   history History[]
+  shares  ContiShare[]
 
   @@map("contis")
+}
+
+model ContiShare {
+  id       String   @id @default(uuid())
+  contiId  String   @map("conti_id")
+  roomId   String   @map("room_id")
+  sharedBy String   @map("shared_by")
+  sharedAt DateTime @default(now()) @map("shared_at")
+
+  conti Conti @relation(fields: [contiId], references: [id], onDelete: Cascade)
+  room  Room  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [sharedBy], references: [id], onDelete: Cascade)
+
+  @@unique([contiId, roomId])
+  @@map("conti_shares")
 }
 
 model ContiSong {

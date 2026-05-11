@@ -4,7 +4,7 @@ import type { Conti } from './contis';
 export interface OrgMember {
   id: string;
   userId: string;
-  role: 'leader' | 'member';
+  role: 'leader' | 'sub_leader' | 'member';
   joinedAt: string;
   user: { id: string; name: string; email: string };
 }
@@ -81,6 +81,9 @@ export const orgsApi = {
 
   transferLeader: (token: string, orgId: string, memberId: string) =>
     request<Organization>(`/organizations/${orgId}/members/${memberId}/transfer`, { method: 'PATCH', headers: authHeaders(token) }),
+
+  setSubLeader: (token: string, orgId: string, memberId: string, isSubLeader: boolean) =>
+    request<Organization>(`/organizations/${orgId}/members/${memberId}/sub-leader`, { method: 'PATCH', headers: authHeaders(token), body: JSON.stringify({ isSubLeader }) }),
 };
 
 export const roomsApi = {

@@ -11,6 +11,9 @@ export class RoomsService {
       where: { orgId_userId: { orgId: dto.orgId, userId } },
     });
     if (!member) throw new ForbiddenException('조직 멤버가 아닙니다.');
+    if (member.role !== 'leader' && member.role !== 'sub_leader') {
+      throw new ForbiddenException('방장 또는 부방장만 채팅방을 생성할 수 있습니다.');
+    }
 
     return this.prisma.room.create({
       data: {
@@ -41,7 +44,9 @@ export class RoomsService {
     const member = await this.prisma.orgMember.findUnique({
       where: { orgId_userId: { orgId: room.orgId, userId } },
     });
-    if (!member || member.role !== 'leader') throw new ForbiddenException('팀장만 삭제할 수 있습니다.');
+    if (!member || (member.role !== 'leader' && member.role !== 'sub_leader')) {
+      throw new ForbiddenException('방장 또는 부방장만 채팅방을 삭제할 수 있습니다.');
+    }
 
     await this.prisma.room.delete({ where: { id: roomId } });
     return { message: '삭제되었습니다.' };
@@ -97,11 +102,12 @@ export class RoomsService {
     if (!member) throw new ForbiddenException('조직 멤버가 아닙니다.');
 
     return this.prisma.conti.findMany({
-      where: { roomId },
+      where: { shares: { some: { roomId } } },
       orderBy: { createdAt: 'desc' },
       include: {
         songs: { include: { song: true }, orderBy: { orderIndex: 'asc' } },
         creator: { select: { id: true, name: true } },
+        shares: { select: { roomId: true } },
       },
     });
   }

@@ -86,4 +86,14 @@ export class OrganizationsController {
   ) {
     return this.orgsService.transferLeader(userId, orgId, memberId);
   }
+
+  @Patch(':id/members/:memberId/sub-leader')
+  setSubLeader(
+    @CurrentUser('sub') userId: string,
+    @Param('id') orgId: string,
+    @Param('memberId') memberId: string,
+    @Body('isSubLeader') isSubLeader: boolean,
+  ) {
+    return this.orgsService.setSubLeader(userId, orgId, memberId, isSubLeader);
+  }
 }

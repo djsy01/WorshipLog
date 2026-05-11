@@ -67,26 +67,63 @@ export function TeamChatTab({ roomId, token, messages, loading, myUserId, onNewM
     onDeleteMessage(messageId);
   }
 
+  function formatTime(dateStr: string) {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (isToday) return time;
+    return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) + ' ' + time;
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex-1 overflow-y-auto space-y-3 max-h-96">
         {loading && <div className="py-4 text-center text-sm text-gray-400">로딩 중...</div>}
         {!loading && messages.length === 0 && <div className="py-8 text-center text-sm text-gray-500">메시지가 없습니다.</div>}
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-2 ${msg.userId === myUserId ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xs rounded-lg px-4 py-2 text-sm ${msg.userId === myUserId ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'}`}>
-              {msg.content && <p>{msg.content}</p>}
-              {msg.fileUrl && (
-                <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className={`inline-block text-xs underline ${msg.userId === myUserId ? 'text-violet-200' : 'text-violet-600'}`}>
-                  파일 보기
-                </a>
-              )}
-              {msg.userId === myUserId && (
-                <button onClick={() => handleDelete(msg.id)} className="ml-2 text-xs opacity-70 hover:opacity-100">삭제</button>
+        {messages.map((msg) => {
+          const isMine = msg.userId === myUserId;
+          return (
+            <div key={msg.id} className={`flex gap-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
+              {isMine ? (
+                <div className="flex items-end gap-1.5">
+                  <div className="group flex items-center gap-1">
+                    <button
+                      onClick={() => handleDelete(msg.id)}
+                      className="hidden group-hover:block text-xs text-gray-400 hover:text-red-500 shrink-0"
+                    >
+                      삭제
+                    </button>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="max-w-xs rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">
+                        {msg.content && <p>{msg.content}</p>}
+                        {msg.fileUrl && (
+                          <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-violet-200 underline">
+                            파일 보기
+                          </a>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">{formatTime(msg.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="ml-1 text-xs text-gray-400">{msg.user.name}</span>
+                  <div className="max-w-xs rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-900 dark:bg-gray-800 dark:text-gray-100">
+                    {msg.content && <p>{msg.content}</p>}
+                    {msg.fileUrl && (
+                      <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-violet-600 underline">
+                        파일 보기
+                      </a>
+                    )}
+                  </div>
+                  <span className="ml-1 text-xs text-gray-400">{formatTime(msg.createdAt)}</span>
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={chatBottomRef} />
       </div>
 

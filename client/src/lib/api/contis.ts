@@ -30,6 +30,7 @@ export interface Conti {
   updatedAt: string;
   songs: ContiSong[];
   creator?: { id: string; name: string };
+  shares: { roomId: string }[];
 }
 
 export const contisApi = {
@@ -79,6 +80,6 @@ export const contisApi = {
   share: (token: string, contiId: string, roomId: string) =>
     request<Conti>(`/contis/${contiId}/share`, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ roomId }) }),
 
-  unshare: (token: string, contiId: string) =>
-    request<Conti>(`/contis/${contiId}/share`, { method: 'DELETE', headers: authHeaders(token) }),
+  unshareFrom: (token: string, contiId: string, roomId: string) =>
+    request<Conti>(`/contis/${contiId}/share/${roomId}`, { method: 'DELETE', headers: authHeaders(token) }),
 };

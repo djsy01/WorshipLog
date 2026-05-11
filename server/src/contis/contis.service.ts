@@ -15,6 +15,7 @@ const CONTI_INCLUDE = {
     orderBy: { orderIndex: 'asc' as const },
   },
   creator: { select: { id: true, name: true } },
+  shares: { select: { roomId: true } },
 };
 
 @Injectable()
@@ -50,9 +51,9 @@ export class ContisService {
     if (!conti) throw new NotFoundException('콘티를 찾을 수 없습니다.');
     if (conti.createdBy === userId) return conti;
 
-    // 채팅방에 공유된 콘티는 조직 멤버도 조회 가능
-    if (conti.roomId) {
-      const room = await this.prisma.room.findUnique({ where: { id: conti.roomId } });
+    // 공유된 채팅방의 조직 멤버도 조회 가능
+    for (const share of conti.shares) {
+      const room = await this.prisma.room.findUnique({ where: { id: share.roomId } });
       if (room) {
         const member = await this.prisma.orgMember.findUnique({
           where: { orgId_userId: { orgId: room.orgId, userId } },
@@ -96,25 +97,27 @@ export class ContisService {
     const member = await this.prisma.orgMember.findUnique({
       where: { orgId_userId: { orgId: room.orgId, userId } },
     });
-    if (!member) throw new ForbiddenException('조직 멤버가 아닙니다.');
+    if (!member || (member.role !== 'leader' && member.role !== 'sub_leader')) {
+      throw new ForbiddenException('방장 또는 부방장만 공유할 수 있습니다.');
+    }
 
-    return this.prisma.conti.update({
-      where: { id: contiId },
-      data: { roomId },
-      include: CONTI_INCLUDE,
+    await this.prisma.contiShare.upsert({
+      where: { contiId_roomId: { contiId, roomId } },
+      create: { contiId, roomId, sharedBy: userId },
+      update: {},
     });
+
+    return this.findOne(userId, contiId);
   }
 
-  async unshare(userId: string, contiId: string) {
+  async unshareFromRoom(userId: string, contiId: string, roomId: string) {
     const conti = await this.prisma.conti.findUnique({ where: { id: contiId } });
     if (!conti) throw new NotFoundException('콘티를 찾을 수 없습니다.');
     if (conti.createdBy !== userId) throw new ForbiddenException('권한이 없습니다.');
 
-    return this.prisma.conti.update({
-      where: { id: contiId },
-      data: { roomId: null },
-      include: CONTI_INCLUDE,
-    });
+    await this.prisma.contiShare.deleteMany({ where: { contiId, roomId } });
+
+    return this.findOne(userId, contiId);
   }
 
   // 변경 전용 - 오너만 가능 (내부용)
