@@ -1,5 +1,6 @@
 import { Injectable, ForbiddenException, NotFoundException, MessageEvent } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { Subject, Observable } from 'rxjs';
 
@@ -8,7 +9,10 @@ export class RoomsService {
   private readonly roomStreams = new Map<string, Subject<MessageEvent>>();
   private readonly orgStreams = new Map<string, Subject<MessageEvent>>();
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private getRoomStream(roomId: string): Subject<MessageEvent> {
     if (!this.roomStreams.has(roomId)) {
@@ -109,6 +113,22 @@ export class RoomsService {
     });
     this.getRoomStream(roomId).next({ data: message });
     this.getOrgStream(room.orgId).next({ data: message });
+
+    // 다른 멤버들에게 FCM 푸시 알림
+    const members = await this.prisma.orgMember.findMany({
+      where: { orgId: room.orgId, NOT: { userId } },
+      include: { user: { select: { fcmToken: true } } },
+    });
+    const tokens = members.map((m) => m.user.fcmToken).filter((t): t is string => !!t);
+    if (tokens.length > 0) {
+      const senderName = (message as any).user?.name ?? '알 수 없음';
+      this.notifications.sendToTokens(tokens, `#${room.name}`, `${senderName}: ${dto.content.slice(0, 80)}`, {
+        roomId,
+        roomName: room.name,
+        orgId: room.orgId,
+      });
+    }
+
     return message;
   }
 

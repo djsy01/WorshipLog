@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart' show Dio, Options, ResponseType;
 import 'package:flutter/material.dart' show MemoryImage;
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/api_client.dart';
 import '../models/conti_detail.dart';
 import 'conti_pdf_layout.dart';
@@ -65,5 +68,15 @@ Future<void> shareContiPdf(ContiDetail conti) async {
   }
 
   final doc = buildContiPdfDoc(conti, songImages, errorMsgs, ttf, ttfBold);
-  await Printing.layoutPdf(onLayout: (_) async => doc.save(), name: conti.title);
+  final pdfBytes = await doc.save();
+
+  final dir = await getTemporaryDirectory();
+  final safeName = conti.title.replaceAll(RegExp(r'[^\w\s\-가-힣]'), '').trim();
+  final file = File('${dir.path}/$safeName.pdf');
+  await file.writeAsBytes(pdfBytes);
+
+  await Share.shareXFiles(
+    [XFile(file.path, mimeType: 'application/pdf')],
+    subject: conti.title,
+  );
 }

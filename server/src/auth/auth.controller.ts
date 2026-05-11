@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Patch, Query, UseGuards } from '@nestjs/common';
 import { IsEmail } from 'class-validator';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -40,6 +40,12 @@ export class AuthController {
   @Post('logout')
   logout(@CurrentUser('sub') userId: string) {
     return this.authService.logout(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('fcm-token')
+  updateFcmToken(@CurrentUser('sub') userId: string, @Body('token') token: string) {
+    return this.authService.updateFcmToken(userId, token);
   }
 
   @UseGuards(JwtRefreshGuard)

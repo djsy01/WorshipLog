@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "95411766290",
+    "project_id": "worshiplog-181f8",
+    "storage_bucket": "worshiplog-181f8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:95411766290:android:fe152e014937670ad784cb",
+        "android_client_info": {
+          "package_name": "com.worshiplog.apps"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBro1R27Prcj4rjG7RGnIep4jRlBx0A3Xc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

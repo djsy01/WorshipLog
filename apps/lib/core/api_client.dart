@@ -4,6 +4,8 @@ import 'token_storage.dart';
 
 String get _apiBaseUrl => kApiUrl.endsWith('/') ? kApiUrl : '$kApiUrl/';
 
+void Function()? onAuthFailed;
+
 Dio _createDio() {
   final dio = Dio(BaseOptions(baseUrl: _apiBaseUrl));
 
@@ -46,6 +48,7 @@ Dio _createDio() {
               return;
             } catch (_) {
               await TokenStorage.clear();
+              onAuthFailed?.call();
             }
           }
         }

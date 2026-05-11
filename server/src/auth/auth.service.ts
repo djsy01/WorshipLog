@@ -136,8 +136,13 @@ export class AuthService {
 
   private async saveRefreshToken(userId: string, token: string) {
     const hashed = await bcrypt.hash(token, 10);
-    const ttl = 7 * 24 * 60 * 60;
+    const ttl = 30 * 24 * 60 * 60; // 30 days
     await this.redis.set(`refresh:${userId}`, hashed, ttl);
+  }
+
+  async updateFcmToken(userId: string, token: string) {
+    await this.prisma.user.update({ where: { id: userId }, data: { fcmToken: token } });
+    return { message: 'ok' };
   }
 
   private sanitize(user: any) {
