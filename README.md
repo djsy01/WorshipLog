@@ -32,23 +32,35 @@
 - 인라인 뷰어 — PDF iframe / 이미지 표시, 장 수 배지 (`기본악보` / `임시악보 N장`)
 - PDF 저장 — 기본·임시악보 fallback 자동 적용, 프린트 레이아웃 최적화
 - 공유하기 (링크 복사)
+- 콘티 복제 — 타인 콘티를 내 콘티로 복사
 
 ### 팀스페이스
 
-- 팀 생성 / 초대 링크 (24시간 토큰) / QR코드
-- 멤버 관리 — 방장 이전, 멤버 추방
+- 팀 생성 / 초대 링크 (24시간 토큰) / QR코드 / 이메일 초대
+- 멤버 관리 — 방장 이전, 부방장 설정, 멤버 추방
+- 팀별 채팅방 (채널) — 방장·부방장만 생성·삭제
+- **채팅** — 카카오톡 스타일 버블 UI
+  - 날짜 구분선 (`yyyy-mm-dd`), 시간 표시 (`HH:MM`)
+  - 이미지 인라인 표시 / 일반 파일 링크
+  - 안읽음 인원 수 노란색으로 표시 (카톡 스타일)
+  - 메시지 검색, 자동 스크롤
+  - 파일 첨부 (최대 50MB)
 - 팀에 콘티 공유·해제, 팀스페이스에서 공유 콘티 조회
-- 팀별 채팅 (카카오톡 스타일 버블 UI, 날짜 구분선, 이미지·PDF 첨부)
 
 ### 말씀 묵상
 
 - 성경 말씀 JSON 기반 오늘의 말씀 / 랜덤 추천
 - 묵상 기록, 묵상 완료 시 커뮤니티 묵상나눔으로 자동 이동
 
+### 히스토리
+
+- 예배 콘티 사용 기록 자동 저장
+- 날짜별 조회
+
 ### UI / UX
 
 - 시스템 다크모드 자동 적용 (`prefers-color-scheme` + `html.dark` 클래스)
-- 오버스크롤 배경 테마 일치 (html 배경색 명시)
+- 오버스크롤 배경 테마 일치
 - 모바일 최적화 (반응형, 슬라이드인 드로어)
 - 사용 가이드 페이지 (`/dashboard/guide`)
 
@@ -56,15 +68,15 @@
 
 ## 기술 스택
 
-| 항목         | 기술                                        | 문서                            |
-| ------------ | ------------------------------------------- | ------------------------------- |
-| 프론트엔드   | Next.js 15 + TypeScript + Tailwind CSS v4   | [Client](./client/README.md)    |
-| 백엔드       | NestJS + TypeScript + Prisma + Redis        | [Server](./server/README.md)    |
-| 데이터베이스 | PostgreSQL (Supabase) + Redis (Upstash)     |                                 |
-| 어플리케이션 | Flutter (Android 우선)                      | [Application](./apps/README.md) |
-| 배포         | Vercel (프론트) + Oracle Cloud(백엔드)      |                                 |
-| 외부 API     | Spotify Web API (찬양 검색 자동완성)        |                                 |
-| 기타         | Supabase Storage, Nodemailer, QR코드, jsPDF |                                 |
+| 항목         | 기술                                             | 문서                            |
+| ------------ | ------------------------------------------------ | ------------------------------- |
+| 프론트엔드   | Next.js 15 + TypeScript + Tailwind CSS v4        | [Client](./client/README.md)    |
+| 백엔드       | NestJS 11 + TypeScript + Prisma 7 + Redis        | [Server](./server/README.md)    |
+| 데이터베이스 | PostgreSQL (Supabase) + Redis (Upstash)          |                                 |
+| 어플리케이션 | Flutter (iOS / Android)                          | [App](./apps/README.md)         |
+| 배포         | 웹 (`https://worshiplog.inho.pe.kr`) + Oracle Cloud (백엔드) |                    |
+| 외부 API     | Spotify Web API (찬양 검색 자동완성)             |                                 |
+| 기타         | Supabase Storage, Firebase FCM, Nodemailer       |                                 |
 
 ---
 
@@ -74,8 +86,7 @@
 WorshipLog/
 ├── server/             # 백엔드 (NestJS)
 ├── client/             # 프론트엔드 (Next.js)
-├── supabase/           # DB 마이그레이션 & RLS 정책
-│   └── migrations/
+├── apps/               # 모바일 앱 (Flutter)
 ├── docs/               # 작업 일지 & 프로젝트 계획서
 │   ├── plan.md
 │   └── YYYY-MM-DD.md
@@ -86,15 +97,22 @@ WorshipLog/
 
 ## 개발 현황
 
-| Phase   | 내용                                                                          | 상태    |
-| ------- | ----------------------------------------------------------------------------- | ------- |
-| Phase 1 | DB 스키마 + NestJS 초기화 + 인증 API                                          | ✅ 완료 |
-| Phase 2 | Next.js 초기화 + 라우팅 + 로그인/회원가입 UI + 이메일 인증                    | ✅ 완료 |
-| Phase 2 | 찬양 CRUD + Spotify 연동 + 오늘의 말씀 + 카테고리·정렬·페이지네이션           | ✅ 완료 |
-| Phase 2 | 콘티 생성/편집 + 악보 이중 구조 + 인라인 뷰어 + PDF 출력/공유 + 모바일 최적화 | ✅ 완료 |
-| Phase 3 | 팀스페이스 — 팀 생성/초대/관리 + 팀별 채팅 + 팀 콘티 공유                     | ✅ 완료 |
-| Phase 3 | 말씀 묵상 + 사용 가이드                                                       | ✅ 완료 |
-| Phase 3 | 히스토리                                                                      | 예정    |
-| Phase 4 | Flutter 앱 + 최종 배포                                                        | 예정    |
+| Phase   | 내용                                                                           | 상태    |
+| ------- | ------------------------------------------------------------------------------ | ------- |
+| Phase 1 | DB 스키마 + NestJS 초기화 + 인증 API                                           | ✅ 완료 |
+| Phase 2 | Next.js 초기화 + 라우팅 + 로그인/회원가입 UI + 이메일 인증                     | ✅ 완료 |
+| Phase 2 | 찬양 CRUD + Spotify 연동 + 오늘의 말씀 + 카테고리·정렬·페이지네이션            | ✅ 완료 |
+| Phase 2 | 콘티 생성/편집 + 악보 이중 구조 + 인라인 뷰어 + PDF 출력/공유 + 모바일 최적화  | ✅ 완료 |
+| Phase 3 | 팀스페이스 — 팀 생성/초대/관리 + 채팅방 + 팀별 채팅 + 콘티 공유                | ✅ 완료 |
+| Phase 3 | 말씀 묵상 + 히스토리 + 사용 가이드                                             | ✅ 완료 |
+| Phase 4 | Flutter 앱 — 인증, 홈, 찬양, 콘티, 팀스페이스, FCM 푸시 알림                  | ✅ 완료 |
+| Phase 4 | 배포 — Oracle Cloud (백엔드) + 웹 도메인 연결                                  | ✅ 완료 |
+| Phase 5 | 채팅 안읽음 인원 수 표시 (카톡 스타일) + 이미지 인라인 + 날짜 포맷 개선        | ✅ 완료 |
 
 > 자세한 일정 및 작업 내역은 [docs/](./docs/) 참고
+
+---
+
+## 저작권
+
+Copyright (c) 2026 djsy01. All Rights Reserved. — [LICENSE](./LICENSE) 참고

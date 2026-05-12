@@ -30,20 +30,25 @@ class ContisScreen extends ConsumerWidget {
       ),
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () => ref.read(contisProvider.notifier).load(),
-              child: state.contis.isEmpty
-                  ? _EmptyState(onCreateTap: () => _showCreateDialog(context, ref))
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: state.contis.length,
-                      separatorBuilder: (context, i) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) => _ContiCard(
-                        conti: state.contis[i],
-                        onDelete: () => _confirmDelete(context, ref, state.contis[i]),
-                      ),
-                    ),
-            ),
+          : state.error != null && state.contis.isEmpty
+              ? _ErrorState(
+                  message: state.error!,
+                  onRetry: () => ref.read(contisProvider.notifier).load(),
+                )
+              : RefreshIndicator(
+                  onRefresh: () => ref.read(contisProvider.notifier).load(),
+                  child: state.contis.isEmpty
+                      ? _EmptyState(onCreateTap: () => _showCreateDialog(context, ref))
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: state.contis.length,
+                          separatorBuilder: (context, i) => const SizedBox(height: 10),
+                          itemBuilder: (context, i) => _ContiCard(
+                            conti: state.contis[i],
+                            onDelete: () => _confirmDelete(context, ref, state.contis[i]),
+                          ),
+                        ),
+                ),
     );
   }
 
@@ -142,6 +147,37 @@ class _ContiCard extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.delete_outline, size: 20, color: cs.onSurface.withValues(alpha: 0.3)),
               onPressed: onDelete,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+            const SizedBox(height: 12),
+            Text('불러오기 실패', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.red[400])),
+            const SizedBox(height: 8),
+            Text(message, style: TextStyle(fontSize: 12, color: Colors.grey[500]), textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('다시 시도'),
             ),
           ],
         ),

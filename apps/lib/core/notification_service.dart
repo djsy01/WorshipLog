@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api_client.dart';
+import 'unread_service.dart';
 
 // 백그라운드 메시지 핸들러 — 최상위 함수여야 함
 @pragma('vm:entry-point')
@@ -35,8 +36,11 @@ class NotificationService {
     // 백그라운드 핸들러 등록
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-    // 포그라운드 메시지 → 로컬 알림으로 표시
+    // 포그라운드 메시지 → 미읽음 카운트 증가 + 로컬 알림 표시
     FirebaseMessaging.onMessage.listen((message) {
+      final roomId = message.data['roomId'];
+      if (roomId != null) UnreadService.increment(roomId);
+
       final notification = message.notification;
       if (notification == null) return;
       _flnp.show(

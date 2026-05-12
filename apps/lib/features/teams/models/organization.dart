@@ -78,6 +78,7 @@ class Message {
   final String? fileUrl;
   final DateTime createdAt;
   final String userName;
+  final int unreadCount;
 
   const Message({
     required this.id,
@@ -87,6 +88,7 @@ class Message {
     this.fileUrl,
     required this.createdAt,
     required this.userName,
+    this.unreadCount = 0,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) => Message(
@@ -97,6 +99,7 @@ class Message {
         fileUrl: json['fileUrl'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
         userName: (json['user'] as Map<String, dynamic>)['name'] as String,
+        unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
       );
 }
 

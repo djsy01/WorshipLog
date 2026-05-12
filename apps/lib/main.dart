@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'firebase_options.dart';
 import 'package:go_router/go_router.dart';
 import 'core/notification_service.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -85,7 +86,7 @@ ThemeData _buildTheme(Brightness brightness) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService.init();
   NotificationService.onTokenRefresh();
   runApp(const ProviderScope(child: WorshipLogApp()));
@@ -108,6 +109,7 @@ class WorshipLogApp extends ConsumerWidget {
             state.matchedLocation == '/register';
 
         if (isUnknown) return '/splash';
+        if (!isAuth && !isAuthRoute) return '/login';
         if (isAuth && isAuthRoute) return '/home';
         return null;
       },

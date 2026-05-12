@@ -6,14 +6,17 @@ Flutter 기반 iOS / Android 모바일 앱
 
 ## 기술 스택
 
-| 항목       | 기술                                          |
-| ---------- | --------------------------------------------- |
-| Framework  | Flutter 3.x (Dart)                            |
-| 상태 관리  | flutter_riverpod 2.x (StateNotifier)          |
-| 라우팅     | go_router 14.x                                |
-| HTTP       | dio 5.x (자동 토큰 갱신 인터셉터)             |
-| 토큰 저장  | flutter_secure_storage (Keychain / Keystore)  |
-| 다크모드   | ThemeMode.system — 시스템 설정 자동 적용      |
+| 항목       | 기술                                             |
+| ---------- | ------------------------------------------------ |
+| Framework  | Flutter 3.x (Dart)                               |
+| 상태 관리  | flutter_riverpod 2.x (StateNotifier)             |
+| 라우팅     | go_router 14.x                                   |
+| HTTP       | dio 5.x (자동 토큰 갱신 인터셉터)               |
+| 토큰 저장  | flutter_secure_storage (Keychain / Keystore)     |
+| 다크모드   | ThemeMode.system — 시스템 설정 자동 적용         |
+| 푸시 알림  | firebase_messaging + flutter_local_notifications |
+| PDF        | printing + pdf (네이티브 인쇄 다이얼로그)        |
+| 파일 선택  | file_picker (갤러리·PDF 다중 선택)               |
 
 ---
 
@@ -22,37 +25,74 @@ Flutter 기반 iOS / Android 모바일 앱
 ```text
 apps/lib/
 ├── core/
-│   ├── constants.dart        # API URL (Android 에뮬레이터 / iOS 분기)
-│   ├── token_storage.dart    # JWT 안전 저장 (FlutterSecureStorage 래퍼)
-│   └── api_client.dart       # Dio 인스턴스 + 401 자동 토큰 갱신 인터셉터
+│   ├── constants.dart              # API URL (String.fromEnvironment)
+│   ├── token_storage.dart          # JWT 안전 저장 (FlutterSecureStorage 래퍼)
+│   ├── api_client.dart             # Dio 인스턴스 + 401 자동 토큰 갱신 인터셉터
+│   ├── notification_service.dart   # FCM 초기화 + 로컬 알림
+│   └── unread_service.dart         # 채팅 방별 미읽음 카운트 (ValueNotifier 싱글톤)
+├── firebase_options.dart           # DefaultFirebaseOptions (iOS / Android)
 ├── features/
 │   ├── auth/
 │   │   ├── models/
-│   │   │   └── auth_response.dart
 │   │   ├── providers/
-│   │   │   └── auth_provider.dart   # AuthNotifier (login / register / logout)
+│   │   │   └── auth_provider.dart  # AuthNotifier (login / register / logout)
 │   │   └── screens/
 │   │       ├── login_screen.dart
 │   │       └── register_screen.dart
-│   ├── songs/                # 찬양 목록 & 검색 (예정)
-│   ├── contis/               # 콘티 목록 & 상세 (예정)
-│   └── teams/                # 팀 관리 (예정)
-└── main.dart                 # ProviderScope + GoRouter + 테마 설정
+│   ├── home/                       # 홈 (오늘의 말씀, 최근 콘티)
+│   ├── songs/                      # 찬양 목록 & 검색
+│   ├── contis/                     # 콘티 목록 & 상세 & 편집
+│   ├── teams/                      # 팀스페이스 & 채팅
+│   │   ├── models/organization.dart
+│   │   ├── providers/orgs_provider.dart
+│   │   ├── screens/team_screen.dart       # 팀 목록 + 채팅방 목록
+│   │   └── screens/room_chat_screen.dart  # 채팅 탭 + 콘티 탭
+│   └── shell/
+│       └── screens/shell_screen.dart  # 하단 NavigationBar + 중첩 Navigator
+└── main.dart                       # ProviderScope + GoRouter + Firebase 초기화
 ```
 
 ---
 
 ## 환경 설정
 
-**Android 에뮬레이터** — `lib/core/constants.dart` 에서 자동 분기:
+API URL은 빌드 시 `--dart-define-from-file=env.json`으로 주입합니다.
 
-```dart
-final String kApiUrl = Platform.isAndroid
-    ? 'http://10.0.2.2:3000/api'   // 에뮬레이터 → 호스트 localhost
-    : 'http://localhost:3000/api';  // iOS 시뮬레이터
+**`apps/env.json`** (gitignored — 직접 생성):
+
+```json
+{
+  "API_URL": "<백엔드 API 서버 주소>/api"
+}
 ```
 
-실기기에서 테스트할 경우 Mac의 로컬 IP로 변경 필요 (예: `http://192.168.x.x:3000/api`).
+**`apps/lib/core/constants.dart`**:
+
+```dart
+const String kApiUrl = String.fromEnvironment(
+  'API_URL',
+  defaultValue: 'http://localhost:3000/api',
+);
+```
+
+VS Code에서는 `.vscode/launch.json`에 설정되어 있으므로 F5로 자동 적용됩니다.
+(`.vscode/`는 gitignored이므로 각 환경에서 직접 생성 필요)
+
+---
+
+## Firebase 설정
+
+`firebase_core ^3.x`부터 `Firebase.initializeApp()` 단독 호출은 동작하지 않습니다.
+반드시 `DefaultFirebaseOptions`를 명시적으로 전달해야 합니다.
+
+```dart
+await Firebase.initializeApp(
+  options: DefaultFirebaseOptions.currentPlatform,
+);
+```
+
+- iOS: `GoogleService-Info.plist` + `apps/lib/firebase_options.dart`
+- Android: `google-services.json` + `apps/lib/firebase_options.dart`
 
 ---
 
@@ -62,16 +102,16 @@ final String kApiUrl = Platform.isAndroid
 # 의존성 설치
 flutter pub get
 
-# iOS 시뮬레이터
-open -a Simulator
-flutter run
-
-# Android 에뮬레이터 (Android Studio에서 AVD 실행 후)
-flutter run
+# 실기기 실행 (env.json 포함)
+flutter run --dart-define-from-file=env.json
 
 # 특정 디바이스 지정
 flutter devices
-flutter run -d <device-id>
+flutter run -d <device-id> --dart-define-from-file=env.json
+
+# 릴리즈 빌드
+flutter build apk --dart-define-from-file=env.json
+flutter build ios --dart-define-from-file=env.json
 ```
 
 ---
@@ -79,23 +119,41 @@ flutter run -d <device-id>
 ## 인증 플로우
 
 ```text
-회원가입 → 이메일 인증 안내 다이얼로그
-                ↓
-       이메일 링크 클릭 (웹 처리)
-                ↓
-          로그인 화면
-                ↓
-     JWT 저장 (FlutterSecureStorage)
-                ↓
-          홈 화면 이동
+앱 시작 → _checkAuth() → SecureStorage 토큰 확인
+         ↓ 없음                  ↓ 있음
+    /login 화면             /home (ShellScreen)
+         ↓
+  로그인 성공 → JWT 저장 → FCM 토큰 서버 등록 → /home
 ```
 
-| 저장 키         | 내용                      |
-| --------------- | ------------------------- |
-| `accessToken`   | JWT Access Token (15분)   |
-| `refreshToken`  | JWT Refresh Token (7일)   |
+| 저장 키        | 내용                     |
+| -------------- | ------------------------ |
+| `accessToken`  | JWT Access Token (15분)  |
+| `refreshToken` | JWT Refresh Token (30일) |
+| `user`         | 사용자 정보 JSON         |
 
 토큰 만료 시 Dio 인터셉터가 자동으로 `/auth/refresh` 호출 후 재시도.
+
+---
+
+## GoRouter 라우팅
+
+```dart
+redirect: (context, state) {
+  if (isUnknown) return '/splash';              // 토큰 확인 중
+  if (!isAuth && !isAuthRoute) return '/login'; // 미인증 → 로그인
+  if (isAuth && isAuthRoute) return '/home';    // 인증됨 → 홈
+  return null;
+}
+```
+
+| 경로          | 화면             |
+| ------------- | ---------------- |
+| `/splash`     | 로딩 인디케이터  |
+| `/login`      | 로그인           |
+| `/register`   | 회원가입         |
+| `/home`       | ShellScreen (탭) |
+| `/contis/:id` | 콘티 상세        |
 
 ---
 
@@ -103,16 +161,43 @@ flutter run -d <device-id>
 
 ### 인증
 
-- 로그인 / 회원가입
-- 이메일 인증 안내
+- 로그인 / 회원가입 / 로그아웃
 - JWT 자동 갱신 (Dio 인터셉터)
-- 로그아웃
+- flutter_secure_storage 영구 저장
 
-### 예정
+### 홈
 
-- 찬양 목록 & 검색
-- 콘티 목록 & 상세
-- 팀 관리
+- 오늘의 말씀 카드
+- 최근 콘티 목록
+- 빠른 액션 버튼
+
+### 찬양
+
+- 목록 조회 및 검색
+- 상세 정보 표시
+
+### 콘티
+
+- 목록 / 상세 / 편집
+- 악보 갤러리·PDF 업로드 (다중 선택)
+- 악보 가로 스와이프 PageView
+- PDF 내보내기 (네이티브 인쇄 다이얼로그)
+- 콘티 복제 기능 (본인 콘티는 버튼 숨김)
+
+### 팀스페이스
+
+- 팀 목록 / 팀 생성 / 토큰으로 팀 참여
+- 받은 초대 목록 (수락·거절)
+- 팀별 채팅방 목록
+- **채팅 탭** — 메시지 전송/삭제, 날짜 구분선, 본인/타인 버블 구분
+- **콘티 탭** — 채팅방에 공유된 콘티 목록
+- 미읽음 배지 (채팅방별 실시간 표시 — `UnreadService`)
+
+### 푸시 알림 (FCM)
+
+- 포그라운드: 로컬 알림으로 표시 + 해당 방 미읽음 카운트 증가
+- 백그라운드: FCM 자동 표시
+- 로그인 시 FCM 토큰 서버 등록
 
 ---
 
