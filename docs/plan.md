@@ -106,7 +106,7 @@
 2. **배포** ✅
    - 백엔드: Oracle Cloud (pm2, GitHub Actions 자동 배포)
    - 웹: `https://worshiplog.inho.pe.kr`
-   - API: `https://worshiplog.duckdns.org/api`
+   - API: 백엔드 API 서버 (Oracle Cloud, env.json 참고)
 
 ---
 

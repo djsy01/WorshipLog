@@ -56,7 +56,7 @@ API URL은 빌드 시 `--dart-define-from-file=env.json`으로 주입합니다.
 
 ```json
 {
-  "API_URL": "https://worshiplog.duckdns.org/api"
+  "API_URL": "<백엔드 API 서버 주소>/api"
 }
 ```
 

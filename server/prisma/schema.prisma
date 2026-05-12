@@ -33,6 +33,7 @@ model User {
   meditations    Meditation[]
   globalPosts    Post[]
   globalComments Comment[]
+  roomReads      RoomRead[]
 
   @@unique([provider, providerId])
   @@map("users")
@@ -100,8 +101,21 @@ model Room {
   messages    Message[]
   contis      Conti[]
   contiShares ContiShare[]
+  reads       RoomRead[]
 
   @@map("rooms")
+}
+
+model RoomRead {
+  roomId     String   @map("room_id")
+  userId     String   @map("user_id")
+  lastReadAt DateTime @default(now()) @map("last_read_at")
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, userId])
+  @@map("room_reads")
 }
 
 model Message {

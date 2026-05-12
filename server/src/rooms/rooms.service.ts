@@ -91,10 +91,26 @@ export class RoomsService {
     });
     if (!member) throw new ForbiddenException('조직 멤버가 아닙니다.');
 
-    return this.prisma.message.findMany({
-      where: { roomId },
-      orderBy: { createdAt: 'desc' },
-      include: { user: { select: { id: true, name: true } } },
+    // 현재 유저 읽음 시각 갱신
+    await this.prisma.roomRead.upsert({
+      where: { roomId_userId: { roomId, userId } },
+      create: { roomId, userId },
+      update: { lastReadAt: new Date() },
+    });
+
+    const [totalMembers, reads, messages] = await Promise.all([
+      this.prisma.orgMember.count({ where: { orgId: room.orgId } }),
+      this.prisma.roomRead.findMany({ where: { roomId } }),
+      this.prisma.message.findMany({
+        where: { roomId },
+        orderBy: { createdAt: 'asc' },
+        include: { user: { select: { id: true, name: true } } },
+      }),
+    ]);
+
+    return messages.map((msg) => {
+      const readCount = reads.filter((r) => r.lastReadAt >= msg.createdAt).length;
+      return { ...msg, unreadCount: Math.max(0, totalMembers - readCount) };
     });
   }
 

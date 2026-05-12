@@ -23,7 +23,7 @@ NestJS + TypeScript REST API 서버
 
 ## 배포
 
-- **서버 주소**: `https://worshiplog.duckdns.org`
+- **서버 주소**: 프로덕션 API 서버 (Oracle Cloud, env 참고)
 - **인프라**: Oracle Cloud (Ubuntu) + pm2
 - **배포 방식**: GitHub Actions SSH 자동 배포 (`.github/workflows/server-deploy.yml`)
   - `server/**` 변경 push 시 자동 실행

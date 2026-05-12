@@ -34,6 +34,7 @@ export interface Message {
   content: string;
   fileUrl: string | null;
   createdAt: string;
+  unreadCount: number;
   user: { id: string; name: string };
 }
 
