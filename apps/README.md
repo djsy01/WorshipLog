@@ -15,6 +15,8 @@ Flutter 기반 iOS / Android 모바일 앱
 | 토큰 저장  | flutter_secure_storage (Keychain / Keystore)     |
 | 다크모드   | ThemeMode.system — 시스템 설정 자동 적용         |
 | 푸시 알림  | firebase_messaging + flutter_local_notifications |
+| PDF        | printing + pdf (네이티브 인쇄 다이얼로그)        |
+| 파일 선택  | file_picker (갤러리·PDF 다중 선택)               |
 
 ---
 
@@ -41,6 +43,10 @@ apps/lib/
 │   ├── songs/                      # 찬양 목록 & 검색
 │   ├── contis/                     # 콘티 목록 & 상세 & 편집
 │   ├── teams/                      # 팀스페이스 & 채팅
+│   │   ├── models/organization.dart
+│   │   ├── providers/orgs_provider.dart
+│   │   ├── screens/team_screen.dart       # 팀 목록 + 채팅방 목록
+│   │   └── screens/room_chat_screen.dart  # 채팅 탭 + 콘티 탭
 │   └── shell/
 │       └── screens/shell_screen.dart  # 하단 NavigationBar + 중첩 Navigator
 └── main.dart                       # ProviderScope + GoRouter + Firebase 초기화
@@ -52,7 +58,7 @@ apps/lib/
 
 API URL은 빌드 시 `--dart-define-from-file=env.json`으로 주입합니다.
 
-**`apps/env.json`** (gitignored):
+**`apps/env.json`** (gitignored — 직접 생성):
 
 ```json
 {
@@ -70,6 +76,7 @@ const String kApiUrl = String.fromEnvironment(
 ```
 
 VS Code에서는 `.vscode/launch.json`에 설정되어 있으므로 F5로 자동 적용됩니다.
+(`.vscode/`는 gitignored이므로 각 환경에서 직접 생성 필요)
 
 ---
 
@@ -175,12 +182,16 @@ redirect: (context, state) {
 - 악보 갤러리·PDF 업로드 (다중 선택)
 - 악보 가로 스와이프 PageView
 - PDF 내보내기 (네이티브 인쇄 다이얼로그)
-- 콘티 복제 기능
+- 콘티 복제 기능 (본인 콘티는 버튼 숨김)
 
 ### 팀스페이스
 
-- 팀 목록 및 채팅
-- 채팅 안읽음 뱃지 (방 목록 실시간 표시 — `UnreadService`)
+- 팀 목록 / 팀 생성 / 토큰으로 팀 참여
+- 받은 초대 목록 (수락·거절)
+- 팀별 채팅방 목록
+- **채팅 탭** — 메시지 전송/삭제, 날짜 구분선, 본인/타인 버블 구분
+- **콘티 탭** — 채팅방에 공유된 콘티 목록
+- 미읽음 배지 (채팅방별 실시간 표시 — `UnreadService`)
 
 ### 푸시 알림 (FCM)
 
