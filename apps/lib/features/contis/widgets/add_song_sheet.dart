@@ -91,7 +91,7 @@ class _AddSongSheetState extends State<AddSongSheet> {
                 Navigator.pop(ctx, {
                   'title': titleCtrl.text.trim(),
                   'artist': artistCtrl.text.trim(),
-                  if (selectedKey case final k?) 'defaultKey': k,
+                  if (selectedKey != null) 'defaultKey': selectedKey!,
                   if (tempoCtrl.text.isNotEmpty && int.tryParse(tempoCtrl.text) != null)
                     'tempo': int.parse(tempoCtrl.text),
                   'isPublic': true,

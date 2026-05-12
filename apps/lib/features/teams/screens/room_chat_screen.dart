@@ -82,7 +82,7 @@ class _ChatTabState extends State<_ChatTab> {
   final _scrollCtrl = ScrollController();
   bool _sending = false;
   Timer? _pollTimer;
-  String? _newestId; // 서버가 desc 반환 → msgs.first.id = 최신
+  String? _newestId;
 
   @override
   void initState() {
@@ -103,11 +103,9 @@ class _ChatTabState extends State<_ChatTab> {
   Future<void> _loadMessages() async {
     try {
       final res = await dio.get('rooms/${widget.roomId}/messages');
-      // 서버가 createdAt desc 반환 → reversed() 로 오래된 것이 위, 최신이 아래
+      // 서버가 createdAt asc 반환 → 오래된 것이 위, 최신이 아래
       final msgs = (res.data as List)
           .map((e) => Message.fromJson(e as Map<String, dynamic>))
-          .toList()
-          .reversed
           .toList();
       if (!mounted) return;
       setState(() {
@@ -124,16 +122,14 @@ class _ChatTabState extends State<_ChatTab> {
   Future<void> _poll() async {
     try {
       final res = await dio.get('rooms/${widget.roomId}/messages');
-      // 서버가 desc 반환 → first = 최신
+      // 서버가 asc 반환 → last = 최신
       final raw = res.data as List;
       if (raw.isEmpty) return;
-      final newestFromServer = raw.first['id'] as String;
-      if (newestFromServer == _newestId) return; // 변화 없음
+      final newestFromServer = raw.last['id'] as String;
+      if (newestFromServer == _newestId) return;
 
       final msgs = raw
           .map((e) => Message.fromJson(e as Map<String, dynamic>))
-          .toList()
-          .reversed
           .toList();
       if (!mounted) return;
       final atBottom = _scrollCtrl.hasClients &&
@@ -527,12 +523,29 @@ class _MessageBubble extends StatelessWidget {
                         color: isMe ? Colors.white : cs.onSurface)),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
-              child: Text(_formatTime(msg.createdAt),
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: cs.onSurface.withValues(alpha: 0.3))),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (msg.unreadCount > 0)
+                  Padding(
+                    padding: EdgeInsets.only(
+                        right: isMe ? 4 : 0, left: isMe ? 0 : 4),
+                    child: Text(
+                      '${msg.unreadCount}',
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFACC15)),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, left: 2, right: 2),
+                  child: Text(_formatTime(msg.createdAt),
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: cs.onSurface.withValues(alpha: 0.3))),
+                ),
+              ],
             ),
           ],
         ),

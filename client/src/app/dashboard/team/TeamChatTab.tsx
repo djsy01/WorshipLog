@@ -85,8 +85,11 @@ export function TeamChatTab({ roomId, token, messages, loading, myUserId, onNewM
 
   const renderItems = useMemo<RenderItem[]>(() => {
     const items: RenderItem[] = [];
+    const sorted = [...filteredMessages].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
     let lastDateKey = '';
-    for (const msg of filteredMessages) {
+    for (const msg of sorted) {
       const dateKey = new Date(msg.createdAt).toDateString();
       if (dateKey !== lastDateKey) {
         items.push({ kind: 'date', label: formatDateLabel(msg.createdAt), key: `date-${dateKey}` });

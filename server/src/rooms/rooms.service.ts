@@ -127,6 +127,12 @@ export class RoomsService {
       data: { roomId, userId, content: dto.content, fileUrl: dto.fileUrl ?? null },
       include: { user: { select: { id: true, name: true } } },
     });
+    // 발신자 읽음 처리 → 본인 메시지는 unreadCount에서 제외
+    await this.prisma.roomRead.upsert({
+      where: { roomId_userId: { roomId, userId } },
+      create: { roomId, userId },
+      update: { lastReadAt: new Date() },
+    });
     this.getRoomStream(roomId).next({ data: message });
     this.getOrgStream(room.orgId).next({ data: message });
 
