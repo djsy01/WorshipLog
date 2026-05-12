@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/api_client.dart';
 import '../../../core/unread_service.dart';
 import '../../contis/models/conti.dart';
@@ -468,6 +469,15 @@ class _InputBar extends StatelessWidget {
   }
 }
 
+bool _isImageUrl(String url) {
+  final lower = url.toLowerCase().split('?').first;
+  return lower.endsWith('.jpg') ||
+      lower.endsWith('.jpeg') ||
+      lower.endsWith('.png') ||
+      lower.endsWith('.gif') ||
+      lower.endsWith('.webp');
+}
+
 class _MessageBubble extends StatelessWidget {
   final Message msg;
   final bool isMe;
@@ -484,6 +494,11 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasFile = msg.fileUrl != null && msg.fileUrl!.isNotEmpty;
+    final isImage = hasFile && _isImageUrl(msg.fileUrl!);
+    final bubbleColor = isMe ? cs.primary : cs.surfaceContainerHighest;
+    final textColor = isMe ? Colors.white : cs.onSurface;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Align(
@@ -506,10 +521,8 @@ class _MessageBubble extends StatelessWidget {
               child: Container(
                 constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.72),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isMe ? cs.primary : cs.surfaceContainerHighest,
+                  color: hasFile && isImage ? Colors.transparent : bubbleColor,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(16),
                     topRight: const Radius.circular(16),
@@ -517,10 +530,67 @@ class _MessageBubble extends StatelessWidget {
                     bottomRight: Radius.circular(isMe ? 4 : 16),
                   ),
                 ),
-                child: Text(msg.content,
-                    style: TextStyle(
-                        fontSize: 14,
-                        color: isMe ? Colors.white : cs.onSurface)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isImage)
+                      ClipRRect(
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(16),
+                          topRight: const Radius.circular(16),
+                          bottomLeft: Radius.circular(isMe ? 16 : 4),
+                          bottomRight: Radius.circular(isMe ? 4 : 16),
+                        ),
+                        child: Image.network(
+                          msg.fileUrl!,
+                          fit: BoxFit.cover,
+                          width: MediaQuery.of(context).size.width * 0.6,
+                          errorBuilder: (_, __, _) => Container(
+                            width: MediaQuery.of(context).size.width * 0.6,
+                            height: 100,
+                            color: cs.surfaceContainerHighest,
+                            child: Icon(Icons.broken_image_outlined,
+                                color: cs.onSurface.withValues(alpha: 0.3)),
+                          ),
+                        ),
+                      )
+                    else if (hasFile)
+                      GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(msg.fileUrl!),
+                            mode: LaunchMode.externalApplication),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.attach_file,
+                                  size: 16, color: textColor.withValues(alpha: 0.8)),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  msg.fileUrl!.split('/').last.split('?').first,
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: textColor,
+                                      decoration: TextDecoration.underline),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (msg.content.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        child: Text(msg.content,
+                            style: TextStyle(fontSize: 14, color: textColor)),
+                      ),
+                  ],
+                ),
               ),
             ),
             Row(
