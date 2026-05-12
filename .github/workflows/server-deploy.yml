@@ -15,7 +15,7 @@ jobs:
           host: ${{ secrets.HOST }} # Oracle Cloud IP
           username: ubuntu # 우분투 계정명
           key: ${{ secrets.SSH_KEY }} # SSH 개인키
-          envs: FIREBASE_SERVICE_ACCOUNT,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,JWT_REFRESH_EXPIRES_IN,CLIENT_URL
+          envs: FIREBASE_SERVICE_ACCOUNT,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,JWT_REFRESH_EXPIRES_IN
           script: |
             cd ~/WorshipLog/server
             git pull origin dev
@@ -28,8 +28,6 @@ jobs:
             echo "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET" >> .env
             sed -i '/^JWT_REFRESH_EXPIRES_IN=/d' .env 2>/dev/null || true
             echo "JWT_REFRESH_EXPIRES_IN=30d" >> .env
-            sed -i '/^CLIENT_URL=/d' .env 2>/dev/null || true
-            echo "CLIENT_URL=$CLIENT_URL" >> .env
             npm install
             npx prisma generate
             npm run build
