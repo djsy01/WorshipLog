@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
+import '../../../core/unread_service.dart';
 import '../../contis/models/conti.dart';
 import '../models/organization.dart';
 
@@ -86,6 +87,7 @@ class _ChatTabState extends State<_ChatTab> {
   @override
   void initState() {
     super.initState();
+    UnreadService.clear(widget.roomId);
     _loadMessages();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _poll());
   }

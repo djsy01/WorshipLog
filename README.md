@@ -61,10 +61,10 @@
 | 프론트엔드   | Next.js 15 + TypeScript + Tailwind CSS v4   | [Client](./client/README.md)    |
 | 백엔드       | NestJS + TypeScript + Prisma + Redis        | [Server](./server/README.md)    |
 | 데이터베이스 | PostgreSQL (Supabase) + Redis (Upstash)     |                                 |
-| 어플리케이션 | Flutter (Android 우선)                      | [Application](./apps/README.md) |
-| 배포         | Vercel (프론트) + Oracle Cloud(백엔드)      |                                 |
+| 어플리케이션 | Flutter (iOS / Android)                     | [Application](./apps/README.md) |
+| 배포         | `https://worshiplog.inho.pe.kr` (웹) + Oracle Cloud (백엔드) |              |
 | 외부 API     | Spotify Web API (찬양 검색 자동완성)        |                                 |
-| 기타         | Supabase Storage, Nodemailer, QR코드, jsPDF |                                 |
+| 기타         | Supabase Storage, Firebase FCM, Nodemailer  |                                 |
 
 ---
 
@@ -74,6 +74,7 @@
 WorshipLog/
 ├── server/             # 백엔드 (NestJS)
 ├── client/             # 프론트엔드 (Next.js)
+├── apps/               # 모바일 앱 (Flutter)
 ├── supabase/           # DB 마이그레이션 & RLS 정책
 │   └── migrations/
 ├── docs/               # 작업 일지 & 프로젝트 계획서
@@ -94,7 +95,7 @@ WorshipLog/
 | Phase 2 | 콘티 생성/편집 + 악보 이중 구조 + 인라인 뷰어 + PDF 출력/공유 + 모바일 최적화 | ✅ 완료 |
 | Phase 3 | 팀스페이스 — 팀 생성/초대/관리 + 팀별 채팅 + 팀 콘티 공유                     | ✅ 완료 |
 | Phase 3 | 말씀 묵상 + 사용 가이드                                                       | ✅ 완료 |
-| Phase 3 | 히스토리                                                                      | 예정    |
-| Phase 4 | Flutter 앱 + 최종 배포                                                        | 예정    |
+| Phase 4 | Flutter 앱 — 인증, 홈, 찬양, 콘티, 팀스페이스, FCM 푸시 알림                 | ✅ 완료 |
+| Phase 4 | 배포 — Oracle Cloud (백엔드) + 웹 도메인 연결                                 | ✅ 완료 |
 
 > 자세한 일정 및 작업 내역은 [docs/](./docs/) 참고

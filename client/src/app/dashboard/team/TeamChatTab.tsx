@@ -76,10 +76,13 @@ export function TeamChatTab({ roomId, token, messages, loading, myUserId, onNewM
 
   const firstUnreadIndex = useMemo(() => {
     if (!lastSeenAt) return -1;
-    return messages.findIndex((m) => new Date(m.createdAt) > lastSeenAt);
-  }, [messages, lastSeenAt]);
+    return messages.findIndex((m) => new Date(m.createdAt) > lastSeenAt && m.userId !== myUserId);
+  }, [messages, lastSeenAt, myUserId]);
 
-  const unreadCount = firstUnreadIndex >= 0 ? messages.length - firstUnreadIndex : 0;
+  const unreadCount = useMemo(() => {
+    if (firstUnreadIndex < 0) return 0;
+    return messages.slice(firstUnreadIndex).filter((m) => m.userId !== myUserId).length;
+  }, [messages, firstUnreadIndex, myUserId]);
   const firstUnreadMsgId = firstUnreadIndex >= 0 && !searchQuery.trim() ? messages[firstUnreadIndex]?.id : null;
 
   const renderItems = useMemo<RenderItem[]>(() => {

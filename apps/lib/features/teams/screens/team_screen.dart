@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/unread_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/organization.dart';
 import '../providers/orgs_provider.dart';
@@ -477,30 +478,56 @@ class _OrgSection extends StatelessWidget {
                     fontSize: 13, color: cs.onSurface.withValues(alpha: 0.3))),
           )
         else
-          ...org.rooms.map((room) => ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                leading: Text('#',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: cs.onSurface.withValues(alpha: 0.35))),
-                title: Text(room.name, style: const TextStyle(fontSize: 14)),
-                subtitle: room.description != null && room.description!.isNotEmpty
-                    ? Text(room.description!,
-                        style: const TextStyle(fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis)
-                    : null,
-                trailing: isLeader
-                    ? IconButton(
-                        icon: Icon(Icons.delete_outline,
-                            size: 16,
-                            color: cs.onSurface.withValues(alpha: 0.4)),
-                        onPressed: () => onDeleteRoom(room),
-                      )
-                    : const Icon(Icons.chevron_right),
-                onTap: () => onRoomTap(room),
+          ...org.rooms.map((room) => ValueListenableBuilder<Map<String, int>>(
+                valueListenable: UnreadService.counts,
+                builder: (_, counts, _) {
+                  final unread = counts[room.id] ?? 0;
+                  return ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                    leading: Text('#',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSurface.withValues(alpha: 0.35))),
+                    title: Text(room.name, style: const TextStyle(fontSize: 14)),
+                    subtitle: room.description != null && room.description!.isNotEmpty
+                        ? Text(room.description!,
+                            style: const TextStyle(fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis)
+                        : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (unread > 0)
+                          Container(
+                            margin: const EdgeInsets.only(right: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: cs.primary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text('$unread',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        if (isLeader)
+                          IconButton(
+                            icon: Icon(Icons.delete_outline,
+                                size: 16,
+                                color: cs.onSurface.withValues(alpha: 0.4)),
+                            onPressed: () => onDeleteRoom(room),
+                          )
+                        else
+                          const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                    onTap: () => onRoomTap(room),
+                  );
+                },
               )),
         Divider(height: 1, color: cs.outline.withValues(alpha: 0.2)),
       ],
