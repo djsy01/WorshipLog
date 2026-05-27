@@ -10,12 +10,11 @@ const EMPTY_FORM = { title: '', artist: '', defaultKey: '', tempo: '', lyrics: '
 interface Props {
   contiId: string;
   token: string;
-  addedSongIds: Set<string>;
   onAdd: () => void;
   onClose: () => void;
 }
 
-export default function AddSongPanel({ contiId, token, addedSongIds, onAdd, onClose }: Props) {
+export default function AddSongPanel({ contiId, token, onAdd, onClose }: Props) {
   const [allSongs, setAllSongs] = useState<Song[]>([]);
   const [loadingSongs, setLoadingSongs] = useState(false);
   const [songSearch, setSongSearch] = useState('');
@@ -145,18 +144,14 @@ export default function AddSongPanel({ contiId, token, addedSongIds, onAdd, onCl
                 </div>
               ) : (
                 filtered.map((song) => {
-                  const alreadyAdded = addedSongIds.has(song.id);
                   return (
                     <button
                       key={song.id}
-                      onClick={() => !alreadyAdded && setSelectedSong(song)}
-                      disabled={alreadyAdded}
+                      onClick={() => setSelectedSong(song)}
                       className={`w-full rounded-lg px-3 py-2.5 text-left transition ${
                         selectedSong?.id === song.id
                           ? 'bg-violet-50 ring-1 ring-violet-400 dark:bg-violet-900/30'
-                          : alreadyAdded
-                            ? 'opacity-40 cursor-not-allowed'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -164,12 +159,9 @@ export default function AddSongPanel({ contiId, token, addedSongIds, onAdd, onCl
                           <span className="text-sm font-medium text-gray-900 dark:text-white">{song.title}</span>
                           {song.artist && <span className="ml-2 text-xs text-gray-400">{song.artist}</span>}
                         </div>
-                        <div className="flex items-center gap-1">
-                          {song.defaultKey && (
-                            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-400">{song.defaultKey}</span>
-                          )}
-                          {alreadyAdded && <span className="text-xs text-gray-400">추가됨</span>}
-                        </div>
+                        {song.defaultKey && (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-400">{song.defaultKey}</span>
+                        )}
                       </div>
                     </button>
                   );

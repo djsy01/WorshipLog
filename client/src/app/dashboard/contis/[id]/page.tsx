@@ -239,8 +239,7 @@ export default function ContiEditPage() {
         <AddSongPanel
           contiId={contiId}
           token={token}
-          addedSongIds={new Set(conti.songs.map((cs) => cs.songId))}
-          onAdd={loadConti}
+onAdd={loadConti}
           onClose={() => setShowAddSong(false)}
         />
       )}
