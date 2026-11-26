@@ -1,56 +1,53 @@
 import {
+  CanActivate,
   Controller,
+  ExecutionContext,
+  Injectable,
   Post,
   Delete,
   Param,
   UseGuards,
-  UseInterceptors,
   UploadedFile,
-  BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { SheetMusicService } from './sheet-music.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { DiskUpload } from '../storage/disk-upload.decorator';
+import { SHEET_MIMES } from '../storage/upload-mime';
+import { validateUpload } from '../storage/upload-media';
 
-@UseGuards(JwtAuthGuard)
+@Injectable()
+class SheetMusicAdminGuard implements CanActivate {
+  canActivate(context: ExecutionContext) {
+    const { user } = context
+      .switchToHttp()
+      .getRequest<{ user?: { role?: string } }>();
+    if (user?.role !== 'admin') {
+      throw new ForbiddenException('관리자만 악보를 변경할 수 있습니다.');
+    }
+    return true;
+  }
+}
+
+@UseGuards(JwtAuthGuard, SheetMusicAdminGuard)
 @Controller('songs')
 export class SheetMusicController {
   constructor(private sheetMusicService: SheetMusicService) {}
 
   @Post(':id/sheet')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-      fileFilter: (_req, file, cb) => {
-        const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-        if (allowed.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException('PDF 또는 이미지 파일만 업로드 가능합니다.'), false);
-        }
-      },
-    }),
-  )
-  uploadSheet(
+  @DiskUpload(SHEET_MIMES, 10)
+  async uploadSheet(
     @CurrentUser('sub') userId: string,
-    @CurrentUser('role') userRole: string,
     @Param('id') songId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (userRole !== 'admin') throw new ForbiddenException('관리자만 악보를 업로드할 수 있습니다.');
-    if (!file) throw new BadRequestException('파일이 없습니다.');
+    await validateUpload(SHEET_MIMES, file);
     return this.sheetMusicService.upload(userId, songId, file);
   }
 
   @Delete(':id/sheet')
-  deleteSheet(
-    @CurrentUser('sub') userId: string,
-    @CurrentUser('role') userRole: string,
-    @Param('id') songId: string,
-  ) {
-    if (userRole !== 'admin') throw new ForbiddenException('관리자만 악보를 삭제할 수 있습니다.');
-    return this.sheetMusicService.remove(userId, songId);
+  deleteSheet(@Param('id') songId: string) {
+    return this.sheetMusicService.remove(songId);
   }
 }

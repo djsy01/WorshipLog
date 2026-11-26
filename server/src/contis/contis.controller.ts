@@ -8,11 +8,7 @@ import {
   Body,
   Param,
   UseGuards,
-  UseInterceptors,
-  UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { ContisService } from './contis.service';
 import { CreateContiDto } from './dto/create-conti.dto';
 import { UpdateContiDto } from './dto/update-conti.dto';
@@ -22,15 +18,11 @@ import { ReorderSongsDto } from './dto/reorder-songs.dto';
 import { ShareContiDto } from './dto/share-conti.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { SheetMusicService } from '../songs/sheet-music.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('contis')
 export class ContisController {
-  constructor(
-    private contisService: ContisService,
-    private sheetMusicService: SheetMusicService,
-  ) {}
+  constructor(private contisService: ContisService) {}
 
   @Post()
   create(@CurrentUser('sub') userId: string, @Body() dto: CreateContiDto) {
@@ -119,36 +111,5 @@ export class ContisController {
     @Param('roomId') roomId: string,
   ) {
     return this.contisService.unshareFromRoom(userId, contiId, roomId);
-  }
-
-  @Post(':id/songs/:contiSongId/sheet')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-        if (allowed.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException('PDF 또는 이미지 파일만 업로드 가능합니다.'), false);
-        }
-      },
-    }),
-  )
-  uploadContiSheet(
-    @CurrentUser('sub') userId: string,
-    @Param('contiSongId') contiSongId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    if (!file) throw new BadRequestException('파일이 없습니다.');
-    return this.sheetMusicService.uploadForContiSong(userId, contiSongId, file);
-  }
-
-  @Delete(':id/songs/:contiSongId/sheet/:sheetId')
-  deleteContiSheet(
-    @CurrentUser('sub') userId: string,
-    @Param('sheetId') sheetId: string,
-  ) {
-    return this.sheetMusicService.removeSheet(userId, sheetId);
   }
 }

@@ -30,14 +30,15 @@
     "@nestjs/throttler": "^6.5.0",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
-    "@supabase/supabase-js": "^2.99.1",
     "@types/multer": "^2.1.0",
     "@types/nodemailer": "^7.0.11",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "file-type": "21.3.0",
     "firebase-admin": "^13.9.0",
     "ioredis": "^5.10.0",
+    "multer": "^2.5.0",
     "nodemailer": "^8.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -93,5 +94,10 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "overrides": {
+    "@nestjs/platform-express": {
+      "multer": "$multer"
+    }
   }
 }
