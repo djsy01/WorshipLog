@@ -1,5 +1,6 @@
 import type { Conti } from '@/lib/api';
 import PdfSheetViewer from '@/components/PdfSheetViewer';
+import { safeAttachmentUrl } from '@/lib/attachment-url';
 
 export default function ContiPrintLayout({ conti }: { conti: Conti }) {
   return (
@@ -24,12 +25,14 @@ export default function ContiPrintLayout({ conti }: { conti: Conti }) {
                 )}
               </div>
               {printSheets.map((sheet, si) => {
-                const isPdf = sheet.url.toLowerCase().includes('.pdf');
+                const url = safeAttachmentUrl(sheet.url);
+                if (!url) return null;
+                const isPdf = new URL(url).pathname.toLowerCase().endsWith('.pdf');
                 if (isPdf) {
                   return (
                     <PdfSheetViewer
                       key={sheet.id}
-                      url={sheet.url}
+                      url={url}
                       songHeader={{
                         num: index + 1,
                         title: cs.song.title,
@@ -94,7 +97,7 @@ export default function ContiPrintLayout({ conti }: { conti: Conti }) {
                       </tbody>
                     </table>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
-                      <img src={sheet.url} alt={`${cs.song.title} 악보 ${si + 1}p`} style={{ maxWidth: '600px', width: '100%' }} />
+                      <img src={url} alt={`${cs.song.title} 악보 ${si + 1}p`} style={{ maxWidth: '600px', width: '100%' }} />
                     </div>
                   </div>
                 );

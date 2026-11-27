@@ -34,9 +34,5 @@ services:
         sync: false
       - key: SPOTIFY_CLIENT_SECRET
         sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_KEY
-        sync: false
       - key: CLIENT_URL
         sync: false

@@ -1,4 +1,4 @@
-import { request, authHeaders, API_URL } from './request';
+import { request, authHeaders, uploadFile } from './request';
 
 export interface Post {
   id: string;
@@ -29,18 +29,7 @@ export interface PostComment {
 }
 
 export const uploadApi = {
-  upload: async (token: string, file: File): Promise<{ url: string }> => {
-    const form = new FormData();
-    form.append('file', file);
-    const res = await fetch(`${API_URL}/uploads`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message ?? '업로드 실패');
-    return data as { url: string };
-  },
+  upload: (token: string, file: File) => uploadFile<{ url: string }>('/uploads', token, file),
 };
 
 export const communityApi = {

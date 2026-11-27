@@ -1,6 +1,16 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Sse, MessageEvent } from '@nestjs/common';
-import { Observable } from 'rxjs';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Sse,
+} from '@nestjs/common';
 import { RoomsService } from './rooms.service';
+import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -27,14 +37,22 @@ export class RoomsController {
 
   @Get('stream/org')
   @Sse()
-  orgStream(@CurrentUser('sub') _userId: string, @Query('orgId') orgId: string): Observable<MessageEvent> {
-    return this.roomsService.getOrgMessageStream(orgId);
+  orgStream(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('exp') expiresAt: number,
+    @Query('orgId') orgId: string,
+  ) {
+    return this.roomsService.getOrgMessageStream(userId, orgId, expiresAt);
   }
 
   @Get(':id/stream')
   @Sse()
-  stream(@CurrentUser('sub') _userId: string, @Param('id') roomId: string): Observable<MessageEvent> {
-    return this.roomsService.getMessageStream(roomId);
+  stream(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('exp') expiresAt: number,
+    @Param('id') roomId: string,
+  ) {
+    return this.roomsService.getMessageStream(userId, roomId, expiresAt);
   }
 
   @Get(':id/messages')
@@ -46,7 +64,7 @@ export class RoomsController {
   createMessage(
     @CurrentUser('sub') userId: string,
     @Param('id') roomId: string,
-    @Body() dto: { content: string; fileUrl?: string },
+    @Body() dto: CreateMessageDto,
   ) {
     return this.roomsService.createMessage(userId, roomId, dto);
   }

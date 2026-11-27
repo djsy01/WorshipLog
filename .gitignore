@@ -62,7 +62,9 @@ client/.cache/
 # ================================
 server/node_modules/
 server/dist/
+server/uploads/
 server/.env
+!server/.env.example
 
 # ================================
 # 📱 app (React Native)

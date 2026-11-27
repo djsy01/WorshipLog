@@ -2,39 +2,47 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api';
 
 function VerifyEmailConfirmContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const token = searchParams.get('token') ?? '';
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [errorMsg, setErrorMsg] = useState('');
+  return <VerificationResult key={token} token={token} />;
+}
+
+function VerificationResult({ token }: { token: string }) {
+  const router = useRouter();
+  const request = useRef<ReturnType<typeof authApi.verifyEmail> | null>(null);
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(token ? 'loading' : 'error');
+  const [errorMsg, setErrorMsg] = useState(token ? '' : '유효하지 않은 링크입니다.');
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setErrorMsg('유효하지 않은 링크입니다.');
-      return;
-    }
-
-    authApi
-      .verifyEmail(token)
+    if (!token) return;
+    let active = true;
+    let redirect: ReturnType<typeof setTimeout> | undefined;
+    request.current ??= authApi.verifyEmail(token);
+    request.current
       .then((res) => {
+        if (!active) return;
         localStorage.setItem('accessToken', res.accessToken);
         localStorage.setItem('refreshToken', res.refreshToken);
         localStorage.setItem('user', JSON.stringify(res.user));
         setStatus('success');
-        setTimeout(() => router.push('/dashboard'), 2000);
+        redirect = setTimeout(() => router.push('/dashboard'), 2000);
       })
       .catch((err: Error) => {
+        if (!active) return;
         setStatus('error');
         setErrorMsg(err.message);
       });
+    return () => {
+      active = false;
+      clearTimeout(redirect);
+    };
   }, [token, router]);
 
   const cardCls = 'rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700';

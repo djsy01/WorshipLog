@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { bibleApi, orgsApi, type Meditation, type Organization } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
+import { useStoredUser } from '@/lib/stored-user';
 import ConfirmModal from '@/components/ConfirmModal';
 import { MonthSidebar } from './MonthSidebar';
 import MeditationCard from './MeditationCard';
@@ -19,19 +20,20 @@ function formatMonthLabel(monthKey: string) {
 }
 
 export default function MeditationPage() {
+  const user = useStoredUser();
+  return <MeditationContent key={user?.id} user={user} />;
+}
+
+function MeditationContent({ user }: { user: ReturnType<typeof useStoredUser> }) {
   const router = useRouter();
   const [meditations, setMeditations] = useState<Meditation[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
+    if (!user) return;
     const token = localStorage.getItem('accessToken') ?? '';
-    if (!localStorage.getItem('user')) {
-      setShowLoginModal(true);
-      return;
-    }
     bibleApi
       .getMeditations(token)
       .then((data) => {
@@ -45,7 +47,7 @@ export default function MeditationPage() {
       })
       .catch(() => null);
     orgsApi.list(token).then(setOrgs).catch(() => null);
-  }, [router]);
+  }, [user]);
 
   // 연월 목록 (최신순)
   const months = useMemo(() => {
@@ -77,7 +79,7 @@ export default function MeditationPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <AppHeader />
 
-      {showLoginModal && (
+      {user === null && (
         <ConfirmModal
           title="로그인이 필요합니다"
           message="말씀묵상 기능을 이용하려면 로그인이 필요합니다."

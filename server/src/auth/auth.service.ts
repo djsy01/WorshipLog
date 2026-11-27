@@ -9,7 +9,9 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
+import { User } from '@prisma/client';
+import { readJwtSettings } from './jwt-settings';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { MailService } from '../mail/mail.service';
@@ -23,10 +25,14 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private config: ConfigService,
+    config: ConfigService,
     private redis: RedisService,
     private mail: MailService,
-  ) {}
+  ) {
+    this.jwt = readJwtSettings(config);
+  }
+
+  private readonly jwt: ReturnType<typeof readJwtSettings>;
 
   async register(dto: RegisterDto) {
     const exists = await this.prisma.user.findUnique({
@@ -34,13 +40,18 @@ export class AuthService {
     });
     if (exists) throw new ConflictException('이미 사용 중인 이메일입니다.');
 
+    if (Buffer.byteLength(dto.password) > 72) {
+      throw new BadRequestException('비밀번호는 72바이트 이하여야 합니다.');
+    }
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data: { email: dto.email, passwordHash, name: dto.name },
     });
 
     // 이메일 전송은 백그라운드로 — 전송 실패해도 가입 응답은 즉시 반환
-    this.sendVerificationToken(user.id, user.email, user.name).catch(() => null);
+    void this.sendVerificationToken(user.id, user.email, user.name).catch(
+      () => null,
+    );
     return { message: '가입이 완료되었습니다. 이메일을 확인해주세요.' };
   }
 
@@ -49,14 +60,20 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (!user || !user.passwordHash)
-      throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
+      throw new UnauthorizedException(
+        '이메일 또는 비밀번호가 올바르지 않습니다.',
+      );
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid)
-      throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
+      throw new UnauthorizedException(
+        '이메일 또는 비밀번호가 올바르지 않습니다.',
+      );
 
     if (!user.emailVerified)
-      throw new ForbiddenException('이메일 인증이 필요합니다. 메일함을 확인해주세요.');
+      throw new ForbiddenException(
+        '이메일 인증이 필요합니다. 메일함을 확인해주세요.',
+      );
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
@@ -64,12 +81,22 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
+    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) {
+      throw new BadRequestException('유효하지 않거나 만료된 인증 링크입니다.');
+    }
     const userId = await this.redis.get(`email_verify:${token}`);
-    if (!userId) throw new BadRequestException('유효하지 않거나 만료된 인증 링크입니다.');
+    if (!userId)
+      throw new BadRequestException('유효하지 않거나 만료된 인증 링크입니다.');
 
-    const user = await this.prisma.user.update({
-      where: { id: userId },
+    const updated = await this.prisma.user.updateMany({
+      where: { id: userId, emailVerified: false },
       data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
+    if (!updated.count) {
+      throw new BadRequestException('유효하지 않거나 만료된 인증 링크입니다.');
+    }
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
     });
 
     await this.redis.del(`email_verify:${token}`);
@@ -82,13 +109,15 @@ export class AuthService {
   async resendVerification(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new NotFoundException('존재하지 않는 이메일입니다.');
-    if (user.emailVerified) throw new BadRequestException('이미 인증된 이메일입니다.');
+    if (user.emailVerified)
+      throw new BadRequestException('이미 인증된 이메일입니다.');
 
     try {
       await this.sendVerificationToken(user.id, user.email, user.name);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new BadRequestException(`이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요. (${msg})`);
+    } catch {
+      throw new BadRequestException(
+        '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
     return { message: '인증 이메일을 재발송했습니다.' };
   }
@@ -99,22 +128,26 @@ export class AuthService {
   }
 
   async refresh(userId: string, refreshToken: string) {
-    const stored = await this.redis.get(`refresh:${userId}`);
-    if (!stored) throw new UnauthorizedException('다시 로그인해주세요.');
-
-    const valid = await bcrypt.compare(refreshToken, stored);
-    if (!valid) throw new UnauthorizedException('유효하지 않은 토큰입니다.');
-
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException();
+    if (!user) throw new UnauthorizedException('다시 로그인해주세요.');
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
+    const replaced = await this.redis.replaceIfEqual(
+      `refresh:${userId}`,
+      this.refreshDigest(refreshToken),
+      this.refreshDigest(tokens.refreshToken),
+      this.jwt.refreshSeconds,
+    );
+    if (!replaced) throw new UnauthorizedException('다시 로그인해주세요.');
     return tokens;
   }
 
-  private async sendVerificationToken(userId: string, email: string, name: string) {
-    const token = crypto.randomBytes(32).toString('hex');
+  private async sendVerificationToken(
+    userId: string,
+    email: string,
+    name: string,
+  ) {
+    const token = randomBytes(32).toString('hex');
     await this.redis.set(`email_verify:${token}`, userId, EMAIL_VERIFY_TTL);
     await this.mail.sendVerificationEmail(email, name, token);
   }
@@ -123,30 +156,40 @@ export class AuthService {
     const payload = { sub: userId, email, role };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: this.config.get('JWT_ACCESS_SECRET'),
-        expiresIn: this.config.get('JWT_ACCESS_EXPIRES_IN'),
+        secret: this.jwt.accessSecret,
+        expiresIn: this.jwt.accessSeconds,
       }),
       this.jwtService.signAsync(payload, {
-        secret: this.config.get('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN'),
+        secret: this.jwt.refreshSecret,
+        jwtid: randomUUID(),
+        expiresIn: this.jwt.refreshSeconds,
       }),
     ]);
     return { accessToken, refreshToken };
   }
 
   private async saveRefreshToken(userId: string, token: string) {
-    const hashed = await bcrypt.hash(token, 10);
-    const ttl = 30 * 24 * 60 * 60; // 30 days
-    await this.redis.set(`refresh:${userId}`, hashed, ttl);
+    await this.redis.set(
+      `refresh:${userId}`,
+      this.refreshDigest(token),
+      this.jwt.refreshSeconds,
+    );
+  }
+
+  private refreshDigest(token: string) {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   async updateFcmToken(userId: string, token: string) {
-    await this.prisma.user.update({ where: { id: userId }, data: { fcmToken: token } });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { fcmToken: token },
+    });
     return { message: 'ok' };
   }
 
-  private sanitize(user: any) {
-    const { passwordHash, ...rest } = user;
+  private sanitize(user: User) {
+    const { passwordHash: _passwordHash, ...rest } = user;
     return rest;
   }
 }

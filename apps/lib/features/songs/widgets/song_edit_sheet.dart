@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/songs_provider.dart';
 import '../models/song.dart';
 import 'song_widgets.dart';
@@ -114,6 +115,7 @@ class _SongEditSheetState extends ConsumerState<SongEditSheet> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final canSave = _titleCtrl.text.trim().isNotEmpty;
+    final canManageSheet = ref.watch(authProvider).user?.role == 'admin';
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -167,8 +169,8 @@ class _SongEditSheetState extends ConsumerState<SongEditSheet> {
                     TextField(controller: _scriptureCtrl, decoration: const InputDecoration(labelText: '말씀 구절 (예: 시 23:1)')),
                     const SizedBox(height: 12),
                     TextField(controller: _lyricsCtrl, maxLines: 5, decoration: const InputDecoration(labelText: '가사', alignLabelWithHint: true)),
-                    const SizedBox(height: 16),
-                    SongSheetPickerCard(
+                    if (canManageSheet) const SizedBox(height: 16),
+                    if (canManageSheet) SongSheetPickerCard(
                       currentUrl: widget.song.sheetMusicUrl,
                       selectedFileName: _sheetFile?.name,
                       removeCurrent: _removeSheet,

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
@@ -12,12 +13,17 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { PostsModule } from './posts/posts.module';
 import { UploadModule } from './uploads/upload.module';
+import { StorageModule } from './storage/storage.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60_000, limit: 20 }],
+    }),
     PrismaModule,
+    StorageModule,
     RedisModule,
     AuthModule,
     SongsModule,

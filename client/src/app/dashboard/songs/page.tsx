@@ -4,27 +4,15 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { songsApi, bibleApi, Song, BibleVerse } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
+import { useAccessToken } from '@/lib/stored-user';
+import { readTokenClaims } from '@/lib/token-claims';
 import { SidebarContent } from './SongsSidebar';
 import { SongsDetailModal } from './SongsDetailModal';
 import { SongsFormModal } from './SongsFormModal';
 import SongsVerseCard from './SongsVerseCard';
 import SongsGrid from './SongsGrid';
-
-const CHO_TO_CAT: Record<number, string> = {
-  0:'ㄱ',1:'ㄱ',2:'ㄴ',3:'ㄷ',4:'ㄷ',5:'ㄹ',6:'ㅁ',7:'ㅂ',8:'ㅂ',
-  9:'ㅅ',10:'ㅅ',11:'ㅇ',12:'ㅈ',13:'ㅈ',14:'ㅊ',15:'ㅊ',16:'ㅊ',17:'ㅊ',18:'ㅎ',
-};
-
-function getSongCategory(title: string): string | null {
-  if (!title) return null;
-  const code = title.charCodeAt(0);
-  if (code >= 0xAC00 && code <= 0xD7A3) {
-    return CHO_TO_CAT[Math.floor((code - 0xAC00) / (21 * 28))] ?? null;
-  }
-  const upper = title[0].toUpperCase();
-  if (upper >= 'A' && upper <= 'Z') return upper;
-  return null;
-}
+import { emptySongForm, type SongFormChange } from './song-form';
+import { getSongCategory } from './song-category';
 
 function formatRef(v: BibleVerse) {
   return `${v.book} ${v.chapter}:${v.verse}`;
@@ -35,24 +23,18 @@ function SongsContent() {
   const searchParams = useSearchParams();
   const [songs, setSongs] = useState<Song[]>([]);
   const [search, setSearch] = useState(searchParams.get('q') ?? '');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [verse, setVerse] = useState<BibleVerse | null>(null);
-  const [token, setToken] = useState('');
-  const [userId, setUserId] = useState('');
-  const [userRole, setUserRole] = useState('');
+  const storedToken = useAccessToken();
+  const token = storedToken ?? '';
+  const claims = readTokenClaims(token);
+  const userId = claims?.userId ?? '';
+  const userRole = claims?.role ?? '';
 
   const [showModal, setShowModal] = useState(false);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
-  const [form, setForm] = useState({
-    title: '',
-    artist: '',
-    defaultKey: '',
-    tempo: '',
-    lyrics: '',
-    scriptureRef: '',
-    isPublic: true,
-  });
+  const [form, setForm] = useState(emptySongForm);
   const [saving, setSaving] = useState(false);
   const [sheetFile, setSheetFile] = useState<File | null>(null);
   const [sheetRemoving, setSheetRemoving] = useState(false);
@@ -61,37 +43,26 @@ function SongsContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [detailSong, setDetailSong] = useState<Song | null>(null);
 
-  const fetchSongs = useCallback(async (q?: string) => {
-    setLoading(true);
-    setError('');
-    try {
-      const t = localStorage.getItem('accessToken') ?? '';
-      const data = await songsApi.list(t, q);
-      setSongs(data);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
+  const loadSongs = useCallback((q?: string) => {
+    const t = localStorage.getItem('accessToken') ?? '';
+    return songsApi.list(t, q)
+      .then(setSongs)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
+  const fetchSongs = useCallback((q?: string) => {
+    setLoading(true);
+    setError('');
+    return loadSongs(q);
+  }, [loadSongs]);
+
   useEffect(() => {
-    const t = localStorage.getItem('accessToken') ?? '';
-    setToken(t);
-    if (t) {
-      try {
-        const payload = JSON.parse(atob(t.split('.')[1]));
-        setUserId(payload.sub ?? '');
-        setUserRole(payload.role ?? 'user');
-      } catch { /* invalid token */ }
-    }
-    fetchSongs();
-    if (t) {
-      bibleApi.today(t).then(setVerse).catch(() => null);
-    } else {
-      bibleApi.publicRandom().then(setVerse).catch(() => null);
-    }
-  }, [fetchSongs]);
+    if (storedToken === undefined) return;
+    loadSongs();
+    const verseRequest = storedToken ? bibleApi.today(storedToken) : bibleApi.publicRandom();
+    verseRequest.then(setVerse).catch(() => null);
+  }, [loadSongs, storedToken]);
 
   useEffect(() => {
     const t = setTimeout(() => fetchSongs(search || undefined), 400);
@@ -101,7 +72,7 @@ function SongsContent() {
   const closeModal = () => {
     setShowModal(false);
     setEditingSong(null);
-    setForm({ title: '', artist: '', defaultKey: '', tempo: '', lyrics: '', scriptureRef: '', isPublic: true });
+    setForm(emptySongForm);
     setSheetFile(null);
   };
 
@@ -189,7 +160,7 @@ function SongsContent() {
     setShowModal(true);
   };
 
-  const handleFormChange = (field: string, value: any) => {
+  const handleFormChange: SongFormChange = (field, value) => {
     setForm((f) => ({ ...f, [field]: value }));
   };
 

@@ -1,56 +1,53 @@
 import 'package:dio/dio.dart';
+import 'api_session.dart';
 import 'constants.dart';
 import 'token_storage.dart';
 
 String get _apiBaseUrl => kApiUrl.endsWith('/') ? kApiUrl : '$kApiUrl/';
-
+const _retried = 'authRetried';
 void Function()? onAuthFailed;
 
 Dio _createDio() {
   final dio = Dio(BaseOptions(baseUrl: _apiBaseUrl));
+  final session = ApiSession(_apiBaseUrl, () => onAuthFailed?.call());
 
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await TokenStorage.getAccessToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
+        if (options.path != 'auth/login' &&
+            options.path != 'auth/register' &&
+            options.extra[_retried] != true) {
+          final token = await TokenStorage.getAccessToken();
+          if (token != null) options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);
       },
       onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
-          final refreshToken = await TokenStorage.getRefreshToken();
-          if (refreshToken != null) {
-            try {
-              final refreshDio = Dio(BaseOptions(baseUrl: _apiBaseUrl));
-              final res = await refreshDio.post(
-                'auth/refresh',
-                options: Options(
-                  headers: {'Authorization': 'Bearer $refreshToken'},
-                ),
-              );
-              final newAccess = res.data['accessToken'] as String;
-              final newRefresh = res.data['refreshToken'] as String;
-              final currentUser = await TokenStorage.getUser();
-              if (currentUser != null) {
-                await TokenStorage.save(
-                  access: newAccess,
-                  refresh: newRefresh,
-                  user: currentUser,
-                );
-              }
-
-              error.requestOptions.headers['Authorization'] =
-                  'Bearer $newAccess';
-              final retryResponse = await dio.fetch(error.requestOptions);
-              handler.resolve(retryResponse);
-              return;
-            } catch (_) {
-              await TokenStorage.clear();
-              onAuthFailed?.call();
-            }
+        final options = error.requestOptions;
+        final authorization = options.headers['Authorization'];
+        if (error.response?.statusCode != 401 ||
+            authorization is! String ||
+            options.extra[_retried] == true) {
+          handler.next(error);
+          return;
+        }
+        try {
+          final access = await session.refresh(authorization);
+          if (access != null) {
+            final body = options.data;
+            final retry = options.copyWith(
+              headers: {...options.headers, 'Authorization': 'Bearer $access'},
+              extra: {...options.extra, _retried: true},
+              data: body is FormData ? body.clone() : body,
+            );
+            handler.resolve(await dio.fetch(retry));
+            return;
           }
+        } on DioException catch (retryError) {
+          handler.next(retryError);
+          return;
+        } catch (_) {
+          /* Preserve the original request error if storage fails. */
         }
         handler.next(error);
       },

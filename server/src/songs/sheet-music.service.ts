@@ -1,118 +1,38 @@
-import {
-  Injectable,
-  NotFoundException,
-  InternalServerErrorException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { createClient } from '@supabase/supabase-js';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
+import { storeSheet } from './store-sheet';
 
 @Injectable()
 export class SheetMusicService {
-  private _supabase: ReturnType<typeof createClient> | null = null;
-  private bucket = 'sheet-music';
-
   constructor(
     private prisma: PrismaService,
-    private config: ConfigService,
+    private storage: StorageService,
   ) {}
 
-  private get supabase() {
-    if (!this._supabase) {
-      const url = this.config.get<string>('SUPABASE_URL');
-      const key = this.config.get<string>('SUPABASE_SERVICE_KEY');
-      if (!url || !key) throw new InternalServerErrorException('Supabase 환경변수가 설정되지 않았습니다.');
-      this._supabase = createClient(url, key);
-    }
-    return this._supabase;
+  upload(userId: string, songId: string, file: Express.Multer.File) {
+    return storeSheet(this.storage, userId, 'song', file, (url) =>
+      this.replace(songId, url),
+    );
   }
 
-  async upload(userId: string, songId: string, file: Express.Multer.File) {
-    const song = await this.prisma.song.findUnique({ where: { id: songId } });
-    if (!song) throw new NotFoundException('찬양을 찾을 수 없습니다.');
-
-    // 기존 파일 삭제
-    if (song.sheetMusicUrl) {
-      const path = this.extractPath(song.sheetMusicUrl);
-      if (path) await this.supabase.storage.from(this.bucket).remove([path]);
-    }
-
-    const ext = file.originalname.split('.').pop();
-    const path = `${userId}/${songId}-${Date.now()}.${ext}`;
-
-    const { error } = await this.supabase.storage
-      .from(this.bucket)
-      .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
-
-    if (error) throw new InternalServerErrorException('업로드 실패: ' + error.message);
-
-    const { data } = this.supabase.storage.from(this.bucket).getPublicUrl(path);
-
-    return this.prisma.song.update({
-      where: { id: songId },
-      data: { sheetMusicUrl: data.publicUrl },
-    });
+  remove(songId: string) {
+    return this.replace(songId, null);
   }
 
-  async remove(userId: string, songId: string) {
-    const song = await this.prisma.song.findUnique({ where: { id: songId } });
-    if (!song) throw new NotFoundException('찬양을 찾을 수 없습니다.');
-
-    if (song.sheetMusicUrl) {
-      const path = this.extractPath(song.sheetMusicUrl);
-      if (path) await this.supabase.storage.from(this.bucket).remove([path]);
-    }
-
-    return this.prisma.song.update({
-      where: { id: songId },
-      data: { sheetMusicUrl: null },
+  private async replace(songId: string, url: string | null) {
+    const { updated, previous } = await this.prisma.$transaction(async (tx) => {
+      const [song] = await tx.$queryRaw<{ sheet_music_url: string | null }[]>`
+        SELECT sheet_music_url FROM songs WHERE id = ${songId} FOR UPDATE
+      `;
+      if (!song) throw new NotFoundException('찬양을 찾을 수 없습니다.');
+      const updated = await tx.song.update({
+        where: { id: songId },
+        data: { sheetMusicUrl: url },
+      });
+      return { updated, previous: song.sheet_music_url };
     });
-  }
-
-  async uploadForContiSong(userId: string, contiSongId: string, file: Express.Multer.File) {
-    const cs = await this.prisma.contiSong.findUnique({ where: { id: contiSongId } });
-    if (!cs) throw new NotFoundException('콘티 곡을 찾을 수 없습니다.');
-
-    const orderIndex = await this.prisma.contiSongSheet.count({ where: { contiSongId } });
-    const ext = file.originalname.split('.').pop();
-    const path = `${userId}/conti-${contiSongId}-${Date.now()}.${ext}`;
-
-    const { error } = await this.supabase.storage
-      .from(this.bucket)
-      .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
-
-    if (error) throw new InternalServerErrorException('업로드 실패: ' + error.message);
-
-    const { data } = this.supabase.storage.from(this.bucket).getPublicUrl(path);
-
-    await this.prisma.contiSongSheet.create({
-      data: { contiSongId, url: data.publicUrl, orderIndex },
-    });
-
-    return this.prisma.contiSong.findUnique({
-      where: { id: contiSongId },
-      include: { song: true, sheets: { orderBy: { orderIndex: 'asc' } } },
-    });
-  }
-
-  async removeSheet(_userId: string, sheetId: string) {
-    const sheet = await this.prisma.contiSongSheet.findUnique({ where: { id: sheetId } });
-    if (!sheet) throw new NotFoundException('악보를 찾을 수 없습니다.');
-
-    const path = this.extractPath(sheet.url);
-    if (path) await this.supabase.storage.from(this.bucket).remove([path]);
-
-    await this.prisma.contiSongSheet.delete({ where: { id: sheetId } });
-
-    return this.prisma.contiSong.findUnique({
-      where: { id: sheet.contiSongId },
-      include: { song: true, sheets: { orderBy: { orderIndex: 'asc' } } },
-    });
-  }
-
-  private extractPath(url: string): string | null {
-    // URL 형식: .../storage/v1/object/public/sheet-music/{path}
-    const match = url.match(/\/sheet-music\/(.+)$/);
-    return match ? match[1] : null;
+    await this.storage.removeByUrl(previous);
+    return updated;
   }
 }

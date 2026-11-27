@@ -1,4 +1,4 @@
-import type { Message, OrgRoom, Organization } from '@/lib/api';
+import type { Conti, Message, OrgRoom, Organization } from '@/lib/api';
 import { TeamChatTab } from './TeamChatTab';
 import { TeamContiTab } from './TeamContiTab';
 
@@ -15,7 +15,7 @@ interface Props {
   token: string;
   onNewMessage: (msg: Message) => void;
   onDeleteMessage: (msgId: string) => void;
-  roomContis: any[];
+  roomContis: Conti[];
   loadingContis: boolean;
 }
 

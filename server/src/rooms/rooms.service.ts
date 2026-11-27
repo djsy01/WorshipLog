@@ -1,11 +1,29 @@
-import { Injectable, ForbiddenException, NotFoundException, MessageEvent } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  Logger,
+  MessageEvent,
+} from '@nestjs/common';
+import { safeAttachmentUrl } from '../common/http/attachment-url';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
-import { Subject, Observable } from 'rxjs';
+import {
+  Subject,
+  Observable,
+  concatMap,
+  takeUntil,
+  takeWhile,
+  timer,
+  catchError,
+  EMPTY,
+} from 'rxjs';
 
 @Injectable()
 export class RoomsService {
+  private readonly logger = new Logger(RoomsService.name);
   private readonly roomStreams = new Map<string, Subject<MessageEvent>>();
   private readonly orgStreams = new Map<string, Subject<MessageEvent>>();
 
@@ -21,8 +39,12 @@ export class RoomsService {
     return this.roomStreams.get(roomId)!;
   }
 
-  getMessageStream(roomId: string): Observable<MessageEvent> {
-    return this.getRoomStream(roomId).asObservable();
+  async getMessageStream(userId: string, roomId: string, expiresAt: number) {
+    const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundException('채팅방을 찾을 수 없습니다.');
+    return this.authorizeStream(userId, room.orgId, expiresAt, () =>
+      this.getRoomStream(roomId),
+    );
   }
 
   private getOrgStream(orgId: string): Subject<MessageEvent> {
@@ -32,8 +54,45 @@ export class RoomsService {
     return this.orgStreams.get(orgId)!;
   }
 
-  getOrgMessageStream(orgId: string): Observable<MessageEvent> {
-    return this.getOrgStream(orgId).asObservable();
+  getOrgMessageStream(userId: string, orgId: string, expiresAt: number) {
+    return this.authorizeStream(userId, orgId, expiresAt, () =>
+      this.getOrgStream(orgId),
+    );
+  }
+
+  private async authorizeStream(
+    userId: string,
+    orgId: string,
+    expiresAt: number,
+    stream: () => Observable<MessageEvent>,
+  ) {
+    if (
+      typeof orgId !== 'string' ||
+      !orgId ||
+      !(await this.isMember(userId, orgId))
+    ) {
+      throw new ForbiddenException('조직 멤버가 아닙니다.');
+    }
+    return stream().pipe(
+      concatMap(async (event) =>
+        (await this.isMember(userId, orgId)) ? event : undefined,
+      ),
+      takeWhile((event): event is MessageEvent => event !== undefined),
+      takeUntil(timer(new Date(expiresAt * 1000))),
+      catchError(() => {
+        this.logger.warn('채팅 스트림을 종료했습니다.');
+        return EMPTY;
+      }),
+    );
+  }
+
+  private async isMember(userId: string, orgId: string) {
+    return Boolean(
+      await this.prisma.orgMember.findUnique({
+        where: { orgId_userId: { orgId, userId } },
+        select: { userId: true },
+      }),
+    );
   }
 
   async create(userId: string, dto: CreateRoomDto) {
@@ -42,7 +101,9 @@ export class RoomsService {
     });
     if (!member) throw new ForbiddenException('조직 멤버가 아닙니다.');
     if (member.role !== 'leader' && member.role !== 'sub_leader') {
-      throw new ForbiddenException('방장 또는 부방장만 채팅방을 생성할 수 있습니다.');
+      throw new ForbiddenException(
+        '방장 또는 부방장만 채팅방을 생성할 수 있습니다.',
+      );
     }
 
     return this.prisma.room.create({
@@ -75,7 +136,9 @@ export class RoomsService {
       where: { orgId_userId: { orgId: room.orgId, userId } },
     });
     if (!member || (member.role !== 'leader' && member.role !== 'sub_leader')) {
-      throw new ForbiddenException('방장 또는 부방장만 채팅방을 삭제할 수 있습니다.');
+      throw new ForbiddenException(
+        '방장 또는 부방장만 채팅방을 삭제할 수 있습니다.',
+      );
     }
 
     await this.prisma.room.delete({ where: { id: roomId } });
@@ -109,12 +172,18 @@ export class RoomsService {
     ]);
 
     return messages.map((msg) => {
-      const readCount = reads.filter((r) => r.lastReadAt >= msg.createdAt).length;
-      return { ...msg, unreadCount: Math.max(0, totalMembers - readCount) };
+      const readCount = reads.filter(
+        (r) => r.lastReadAt >= msg.createdAt,
+      ).length;
+      return {
+        ...msg,
+        fileUrl: safeAttachmentUrl(msg.fileUrl),
+        unreadCount: Math.max(0, totalMembers - readCount),
+      };
     });
   }
 
-  async createMessage(userId: string, roomId: string, dto: { content: string; fileUrl?: string }) {
+  async createMessage(userId: string, roomId: string, dto: CreateMessageDto) {
     const room = await this.prisma.room.findUnique({ where: { id: roomId } });
     if (!room) throw new NotFoundException('채팅방을 찾을 수 없습니다.');
 
@@ -124,7 +193,12 @@ export class RoomsService {
     if (!member) throw new ForbiddenException('조직 멤버가 아닙니다.');
 
     const message = await this.prisma.message.create({
-      data: { roomId, userId, content: dto.content, fileUrl: dto.fileUrl ?? null },
+      data: {
+        roomId,
+        userId,
+        content: dto.content,
+        fileUrl: dto.fileUrl ?? null,
+      },
       include: { user: { select: { id: true, name: true } } },
     });
     // 발신자 읽음 처리 → 본인 메시지는 unreadCount에서 제외
@@ -141,23 +215,36 @@ export class RoomsService {
       where: { orgId: room.orgId, NOT: { userId } },
       include: { user: { select: { fcmToken: true } } },
     });
-    const tokens = members.map((m) => m.user.fcmToken).filter((t): t is string => !!t);
+    const tokens = members
+      .map((m) => m.user.fcmToken)
+      .filter((t): t is string => !!t);
     if (tokens.length > 0) {
-      const senderName = (message as any).user?.name ?? '알 수 없음';
-      this.notifications.sendToTokens(tokens, `#${room.name}`, `${senderName}: ${dto.content.slice(0, 80)}`, {
-        roomId,
-        roomName: room.name,
-        orgId: room.orgId,
-      });
+      const senderName = message.user.name;
+      void this.notifications.sendToTokens(
+        tokens,
+        `#${room.name}`,
+        `${senderName}: ${dto.content.slice(0, 80)}`,
+        {
+          roomId,
+          roomName: room.name,
+          orgId: room.orgId,
+        },
+      );
     }
 
     return message;
   }
 
   async deleteMessage(userId: string, roomId: string, messageId: string) {
-    const msg = await this.prisma.message.findUnique({ where: { id: messageId } });
+    const msg = await this.prisma.message.findUnique({
+      where: { id: messageId, roomId },
+      include: { room: { select: { orgId: true } } },
+    });
     if (!msg) throw new NotFoundException('메시지를 찾을 수 없습니다.');
-    if (msg.userId !== userId) throw new ForbiddenException('작성자만 삭제할 수 있습니다.');
+    if (!(await this.isMember(userId, msg.room.orgId)))
+      throw new ForbiddenException('조직 멤버가 아닙니다.');
+    if (msg.userId !== userId)
+      throw new ForbiddenException('작성자만 삭제할 수 있습니다.');
 
     await this.prisma.message.delete({ where: { id: messageId } });
     return { message: '삭제되었습니다.' };

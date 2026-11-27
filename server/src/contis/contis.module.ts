@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ContisController } from './contis.controller';
 import { ContisService } from './contis.service';
-import { SongsModule } from '../songs/songs.module';
+import { ContiSheetController } from './conti-sheet.controller';
+import { ContiSheetService } from './conti-sheet.service';
 
 @Module({
-  imports: [SongsModule],
-  controllers: [ContisController],
-  providers: [ContisService],
+  controllers: [ContisController, ContiSheetController],
+  providers: [ContisService, ContiSheetService],
 })
 export class ContisModule {}

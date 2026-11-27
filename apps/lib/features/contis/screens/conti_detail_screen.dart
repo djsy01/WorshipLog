@@ -36,11 +36,13 @@ class _ContiDetailScreenState extends ConsumerState<ContiDetailScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final res = await dio.get('contis/${widget.contiId}');
+      if (!mounted) return;
       setState(() {
         _conti = ContiDetail.fromJson(res.data as Map<String, dynamic>);
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() { _error = e.toString(); _loading = false; });
     }
   }
@@ -68,7 +70,10 @@ class _ContiDetailScreenState extends ConsumerState<ContiDetailScreen> {
       _conti = ContiDetail(id: conti.id, title: conti.title, description: conti.description, worshipDate: conti.worshipDate, songs: songs);
     });
     try {
-      await dio.patch('contis/${widget.contiId}/songs', data: {'songIds': songs.map((s) => s.id).toList()});
+      await dio.put(
+        'contis/${widget.contiId}/songs/reorder',
+        data: {'ids': songs.map((song) => song.id).toList()},
+      );
       ref.invalidate(contisProvider);
     } catch (_) {
       await _load();

@@ -11,11 +11,11 @@ NestJS + TypeScript REST API 서버
 | Framework | NestJS 11                                           |
 | Language  | TypeScript                                          |
 | ORM       | Prisma 7 (`@prisma/adapter-pg`)                     |
-| Database  | PostgreSQL (Supabase, Supavisor 풀러)               |
+| Database  | PostgreSQL (오라클 서버 로컬, localhost:5432)       |
 | Cache     | Redis (Upstash) — Refresh Token, 이메일 인증 토큰   |
 | Auth      | JWT (Access 15m + Refresh 30d)                      |
 | Email     | Nodemailer + Gmail SMTP / Resend                    |
-| Storage   | Supabase Storage (`sheet-music` bucket)             |
+| Storage   | 오라클 서버 로컬 디스크 (`UPLOAD_DIR`, nginx 서빙)  |
 | 외부 API  | Spotify Web API (Client Credentials 방식)           |
 | 푸시 알림 | Firebase Admin SDK (FCM)                            |
 
@@ -58,7 +58,7 @@ server/src/
 │   └── dto/
 ├── rooms/                  # 팀 채팅방 CRUD + 메시지 + 읽음 추적 + SSE
 │   └── dto/
-├── uploads/                # 파일 업로드 (Supabase Storage)
+├── uploads/                # 파일 업로드 (로컬 디스크)
 ├── bible/                  # 오늘의 말씀 + 묵상 API
 ├── spotify/                # Spotify 검색 연동
 ├── history/                # 예배 히스토리 기록 및 조회
@@ -72,10 +72,10 @@ server/src/
 
 ## 환경 변수
 
-`server/.env` (로컬 및 서버 동일하게 유지):
+운영 `server/.env` 예시입니다. 로컬 설정은 `.env.example`을 참고합니다.
 
 ```env
-DATABASE_URL=postgresql://postgres.[project-ref]:[password]@aws-x-xx.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://<user>:<password>@localhost:5432/worshiplog
 
 JWT_ACCESS_SECRET=<64바이트 랜덤 hex>
 JWT_ACCESS_EXPIRES_IN=15m
@@ -84,14 +84,13 @@ JWT_REFRESH_EXPIRES_IN=30d
 
 REDIS_URL=rediss://default:<password>@<host>.upstash.io:6379
 
+NODE_ENV=production
 PORT=3000
 CLIENT_URL=https://worshiplog.inho.pe.kr,http://localhost:3001
 
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_SERVICE_KEY=<service_role key>
-
-SPOTIFY_CLIENT_ID=<Spotify 앱 Client ID>
-SPOTIFY_CLIENT_SECRET=<Spotify 앱 Client Secret>
+UPLOAD_DIR=/home/ubuntu/worshiplog-uploads
+PUBLIC_UPLOAD_URL=https://worshiplog.duckdns.org/uploads
+RESEND_API_KEY=<Resend API key>
 
 FIREBASE_PROJECT_ID=<firebase project id>
 FIREBASE_CLIENT_EMAIL=<firebase admin sdk email>
@@ -99,7 +98,9 @@ FIREBASE_PRIVATE_KEY=<firebase admin sdk private key>
 ```
 
 > **주의**: `CLIENT_URL`은 쉼표로 구분하여 다중 origin 허용 (CORS)
-> **주의**: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` 누락 시 로그인 500 에러 발생
+> JWT 비밀키는 서로 다른 32바이트 이상의 임의 값으로 설정합니다. 예: 각 키에 `openssl rand -hex 32` 실행. 키 구성이 유효하지 않으면 서버가 시작되지 않습니다. 키를 교체하면 기존 토큰이 만료되므로 재로그인이 필요합니다.
+
+서버는 기본적으로 `127.0.0.1`에 바인드합니다. Oracle VM에서는 `NODE_ENV=production`을 유지하고 nginx가 루프백으로 프록시하도록 설정합니다. 로컬 기기 테스트에서만 필요에 따라 `HOST=0.0.0.0`을 설정합니다.
 
 ---
 
@@ -111,6 +112,31 @@ npm run start:dev    # 개발 (hot reload) — http://localhost:3000/api
 npm run build
 npm run start:prod
 ```
+
+### 업로드 및 nginx
+
+운영에서 NestJS는 기본적으로 `127.0.0.1:3000`에 바인딩합니다. nginx의 API 프록시는
+`X-Forwarded-For $remote_addr`를 전달합니다. nginx의 `http` 블록에 `mime.types`를 포함하고,
+다음 설정을 기존 사이트의 `server` 블록에 적용합니다.
+
+```nginx
+client_max_body_size 55m;
+
+location ^~ /uploads/.incoming/ {
+    return 404;
+}
+
+location ^~ /uploads/ {
+    alias /home/ubuntu/worshiplog-uploads/;
+    add_header X-Content-Type-Options nosniff always;
+}
+```
+
+NestJS 실행 계정에 저장 디렉터리의 쓰기 권한을 부여하고, nginx 계정에 공개 파일의 읽기 권한과 상위
+디렉터리의 탐색 권한을 부여합니다. 커뮤니티 첨부는 50 MiB, 곡 및 콘티 악보는 각각 10 MiB까지 받을 수
+있습니다. 개발 환경에서는 NestJS가 `/uploads/`를 제공합니다.
+
+DB와 기존 파일 이전 절차는 [복원 가이드](scripts/README-db.md)를 참고합니다.
 
 ---
 
@@ -214,7 +240,7 @@ npm run start:prod
 
 | Method | Path     | 인증        | 설명                                       |
 | ------ | -------- | ----------- | ------------------------------------------ |
-| POST   | /uploads | AccessToken | 파일 업로드 → Supabase Storage URL 반환    |
+| POST   | /uploads | AccessToken | 파일 업로드 → 공개 파일 URL 반환           |
 
 ### History — `/api/history`
 

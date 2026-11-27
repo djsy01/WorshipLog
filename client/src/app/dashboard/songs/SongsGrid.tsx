@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { Song } from '@/lib/api';
 
 interface Props {
@@ -19,7 +19,11 @@ const PAGE_SIZE = 20;
 
 export default function SongsGrid({ songs, loading, error, search, onSearchChange, selectedCat, token, onSelectSong, onAddSong }: Props) {
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [songs]);
+  const [previousSongs, setPreviousSongs] = useState(songs);
+  if (songs !== previousSongs) {
+    setPreviousSongs(songs);
+    setPage(1);
+  }
 
   const totalPages = Math.ceil(songs.length / PAGE_SIZE);
   const paged = songs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);

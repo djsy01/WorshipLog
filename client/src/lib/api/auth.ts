@@ -1,4 +1,4 @@
-import { request } from './request';
+import { authHeaders, request } from './request';
 
 export interface AuthResponse {
   accessToken: string;
@@ -14,7 +14,7 @@ export const authApi = {
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
 
   verifyEmail: (token: string) =>
-    request<AuthResponse>(`/auth/verify-email?token=${token}`, { method: 'POST' }),
+    request<AuthResponse>(`/auth/verify-email?token=${encodeURIComponent(token)}`, { method: 'POST' }),
 
   resendVerification: (email: string) =>
     request<{ message: string }>('/auth/resend-verification', {
@@ -25,6 +25,6 @@ export const authApi = {
   logout: (accessToken: string) =>
     request<void>('/auth/logout', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken),
     }),
 };

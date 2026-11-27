@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api';
@@ -13,21 +13,18 @@ const inputCls =
     'dark:focus:border-violet-400';
 
 function LoginContent() {
-    const router = useRouter();
     const searchParams = useSearchParams();
-    const [form, setForm] = useState({ email: '', password: '' });
+    const registered = searchParams.get('registered') === 'true';
+    const email = registered ? searchParams.get('email') ?? '' : '';
+    return <LoginForm key={email} registered={registered} email={email} />;
+}
+
+function LoginForm({ registered, email }: { registered: boolean; email: string }) {
+    const router = useRouter();
+    const [form, setForm] = useState({ email, password: '' });
     const [error, setError] = useState('');
     const [unverified, setUnverified] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [registered, setRegistered] = useState(false);
-
-    useEffect(() => {
-        if (searchParams.get('registered') === 'true') {
-            setRegistered(true);
-            const email = searchParams.get('email');
-            if (email) setForm((f) => ({ ...f, email }));
-        }
-    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -1,48 +1,38 @@
+import { readTokenClaims } from '../token-claims';
+import { refreshAccess } from './session';
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api';
 
-export function authHeaders(token: string) {
-  return { Authorization: `Bearer ${token}` };
+export function authHeaders(token: string): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function request<T>(path: string, options?: RequestInit, retry = true): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-  });
+export async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers);
+  if (typeof options?.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const access = typeof window !== 'undefined' ? headers.get('Authorization')?.slice(7) : undefined;
+  const expiresAt = access ? readTokenClaims(access)?.expiresAt : undefined;
+  const expired = expiresAt !== undefined && expiresAt <= Date.now();
+  const send = () => fetch(`${API_URL}${path}`, { ...options, headers });
 
-  if (res.status === 401 && retry && typeof window !== 'undefined') {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) {
-      const refreshed = await tryRefresh(refreshToken);
-      if (refreshed) {
-        const newToken = localStorage.getItem('accessToken')!;
-        const newHeaders = { ...options?.headers, Authorization: `Bearer ${newToken}` };
-        return request<T>(path, { ...options, headers: newHeaders }, false);
-      }
-      localStorage.clear();
-      window.location.replace('/login');
-      throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
-    }
-    throw new Error('로그인이 필요합니다.');
+  if (access && expired) {
+    headers.set('Authorization', `Bearer ${await refreshAccess(API_URL, access)}`);
+  }
+  let response = await send();
+  if (response.status === 401 && access && !expired) {
+    headers.set('Authorization', `Bearer ${await refreshAccess(API_URL, access)}`);
+    response = await send();
   }
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message ?? '요청에 실패했습니다.');
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message ?? '요청에 실패했습니다.');
   return data as T;
 }
 
-async function tryRefresh(refreshToken: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${refreshToken}` },
-    });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { accessToken: string; refreshToken: string };
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
-    return true;
-  } catch {
-    return false;
-  }
+export function uploadFile<T>(path: string, token: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append('file', file);
+  return request<T>(path, { method: 'POST', headers: authHeaders(token), body: form });
 }
