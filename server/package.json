@@ -20,31 +20,30 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@nestjs/common": "^11.0.1",
-    "@nestjs/config": "^4.0.3",
-    "@nestjs/core": "^11.0.1",
+    "@nestjs/common": "^11.2.12",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.2.12",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",
-    "@nestjs/platform-express": "^11.0.1",
-    "@nestjs/throttler": "^6.5.0",
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.2",
+    "@nestjs/platform-express": "^11.2.12",
+    "@nestjs/throttler": "^6.8.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@types/multer": "^2.1.0",
-    "@types/nodemailer": "^7.0.11",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
-    "file-type": "21.3.0",
+    "file-type": "^21.3.4",
     "firebase-admin": "^13.9.0",
+    "helmet": "^8.3.0",
     "ioredis": "^5.10.0",
     "multer": "^2.5.0",
-    "nodemailer": "^8.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "pg": "^8.20.0",
-    "prisma": "^7.4.2",
+    "prisma": "^7.10.1",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.9.3",
     "rxjs": "^7.8.1"
@@ -52,9 +51,9 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
-    "@nestjs/cli": "^11.0.0",
+    "@nestjs/cli": "^11.0.24",
     "@nestjs/schematics": "^11.0.0",
-    "@nestjs/testing": "^11.0.1",
+    "@nestjs/testing": "^11.2.12",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
@@ -98,6 +97,24 @@
   "overrides": {
     "@nestjs/platform-express": {
       "multer": "$multer"
+    },
+    "@prisma/config": {
+      "effect": "^3.22.5"
+    },
+    "ajv": {
+      "fast-uri": "^3.1.9"
+    },
+    "gaxios@6": {
+      "uuid": "^11.1.1"
+    },
+    "google-gax@4": {
+      "uuid": "^11.1.1"
+    },
+    "teeny-request@9": {
+      "uuid": "^11.1.1"
+    },
+    "minimatch@3": {
+      "brace-expansion": "^1.1.22"
     }
   }
 }

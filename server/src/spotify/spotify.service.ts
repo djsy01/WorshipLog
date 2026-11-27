@@ -17,7 +17,12 @@ export class SpotifyService {
     if (!res.ok) throw new Error('곡 검색 실패');
 
     const data = (await res.json()) as {
-      results: Array<{ trackId: number; trackName: string; artistName: string; previewUrl?: string }>;
+      results: Array<{
+        trackId: number;
+        trackName: string;
+        artistName: string;
+        previewUrl?: string;
+      }>;
     };
 
     return data.results.map((t) => ({

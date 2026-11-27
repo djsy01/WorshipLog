@@ -77,7 +77,7 @@ export default function MeditationCard({ m, orgs, onNoteUpdate }: Props) {
           <span className="text-xs font-semibold text-violet-500 dark:text-violet-400">· {formatRef(m)}</span>
         </div>
         <div className="relative mb-4">
-          <span className="absolute -top-2 -left-1 select-none text-4xl leading-none text-violet-200 dark:text-violet-800">"</span>
+          <span className="absolute -top-2 -left-1 select-none text-4xl leading-none text-violet-200 dark:text-violet-800">&quot;</span>
           <p className="font-lovespring pl-5 text-base leading-loose text-gray-800 dark:text-gray-200">{m.content}</p>
         </div>
 
@@ -118,7 +118,7 @@ export default function MeditationCard({ m, orgs, onNoteUpdate }: Props) {
             <div className="flex flex-col gap-3 p-3">
               <div className="rounded-lg bg-white dark:bg-gray-900 px-3 py-2.5 text-xs leading-relaxed space-y-1.5">
                 <p className="font-semibold text-violet-500 dark:text-violet-400">📖 {formatRef(m)}</p>
-                <p className="text-gray-700 dark:text-gray-300">"{m.content}"</p>
+                <p className="text-gray-700 dark:text-gray-300">&quot;{m.content}&quot;</p>
                 {m.note && (
                   <>
                     <p className="font-semibold text-amber-500 dark:text-amber-400 pt-1">✏️ 묵상</p>

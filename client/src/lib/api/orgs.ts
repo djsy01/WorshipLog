@@ -1,4 +1,4 @@
-import { request, authHeaders, API_URL } from './request';
+import { request, authHeaders } from './request';
 import type { Conti } from './contis';
 
 export interface OrgMember {

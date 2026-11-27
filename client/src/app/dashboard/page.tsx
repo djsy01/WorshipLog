@@ -5,12 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { bibleApi, contisApi, BibleVerse, Conti } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-}
+import { useStoredUser } from '@/lib/stored-user';
 
 const MENU_ITEMS = [
   { title: '찬양검색', desc: '찬양을 찾아보아요', icon: '🎵', href: '/dashboard/songs', ready: true },
@@ -21,23 +16,29 @@ const MENU_ITEMS = [
 ];
 
 export default function DashboardPage() {
+  const user = useStoredUser();
+  return <DashboardContent key={user?.id} user={user} />;
+}
+
+function DashboardContent({ user }: { user: ReturnType<typeof useStoredUser> }) {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const [verse, setVerse] = useState<BibleVerse | null>(null);
   const [recentContis, setRecentContis] = useState<Conti[]>([]);
   const [songSearch, setSongSearch] = useState('');
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
+    if (user === undefined) return;
     const token = localStorage.getItem('accessToken') ?? '';
-    if (stored) {
-      setUser(JSON.parse(stored) as User);
-      bibleApi.today(token).then(setVerse).catch(() => null);
-      contisApi.list(token).then((data) => setRecentContis(data.slice(0, 3))).catch(() => null);
-    } else {
-      bibleApi.publicRandom().then(setVerse).catch(() => null);
+    let active = true;
+    const verseRequest = user ? bibleApi.today(token) : bibleApi.publicRandom();
+    verseRequest.then((data) => { if (active) setVerse(data); }).catch(() => null);
+    if (user) {
+      contisApi.list(token).then((data) => {
+        if (active) setRecentContis(data.slice(0, 3));
+      }).catch(() => null);
     }
-  }, [router]);
+    return () => { active = false; };
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">

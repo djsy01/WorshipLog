@@ -3,6 +3,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import { readJwtSettings } from '../jwt-settings';
+import { AuthenticatedUser } from '../authenticated-user';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
@@ -12,15 +14,22 @@ export class JwtRefreshStrategy extends PassportStrategy(
   constructor(config: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: config.get<string>('JWT_REFRESH_SECRET')!,
+      secretOrKey: readJwtSettings(config).refreshSecret,
+      algorithms: ['HS256'],
       passReqToCallback: true as const,
     });
   }
 
-  validate(req: Request, payload: { sub: string; email: string }) {
-    const authHeader = req.get('Authorization');
-    if (!authHeader) throw new UnauthorizedException();
-    const refreshToken = authHeader.replace('Bearer ', '').trim();
-    return { ...payload, refreshToken };
+  validate(req: Request, payload: AuthenticatedUser) {
+    const refreshToken = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+    if (
+      !refreshToken ||
+      typeof payload.sub !== 'string' ||
+      !payload.sub ||
+      !Number.isSafeInteger(payload.exp)
+    ) {
+      throw new UnauthorizedException();
+    }
+    return { sub: payload.sub, refreshToken };
   }
 }

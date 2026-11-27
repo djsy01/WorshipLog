@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { orgsApi, roomsApi, type Organization, type Message, type PendingInvite } from '@/lib/api';
+import { orgsApi, roomsApi, type Conti, type Organization, type Message, type PendingInvite } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import ConfirmModal from '@/components/ConfirmModal';
+import { useAccessToken, useStoredUser } from '@/lib/stored-user';
 import { TeamList } from './TeamList';
 import { TeamDetailPanel } from './TeamDetailPanel';
 import { TeamCreateModal } from './TeamCreateModal';
@@ -12,16 +13,23 @@ import { TeamJoinModal } from './TeamJoinModal';
 import { TeamInviteModal } from './TeamInviteModal';
 import { RoomCreateModal } from './RoomCreateModal';
 import { TeamMembersModal } from './TeamMembersModal';
+import { useTeamActions } from './useTeamActions';
+import { useTeamOrder } from './useTeamOrder';
+import { useTeamPolling } from './useTeamPolling';
 
 type Tab = 'chat' | 'conti';
 
 export default function TeamPage() {
+  const user = useStoredUser();
+  return <TeamWorkspace key={user?.id} user={user} />;
+}
+
+function TeamWorkspace({ user }: { user: ReturnType<typeof useStoredUser> }) {
   const router = useRouter();
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [myUserId, setMyUserId] = useState('');
+  const myUserId = user?.id ?? '';
 
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
@@ -33,84 +41,13 @@ export default function TeamPage() {
   const [tab, setTab] = useState<Tab>('chat');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [roomContis, setRoomContis] = useState<any[]>([]);
+  const [roomContis, setRoomContis] = useState<Conti[]>([]);
   const [loadingContis, setLoadingContis] = useState(false);
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', description: '' });
-  const [creating, setCreating] = useState(false);
-
-  const [showJoin, setShowJoin] = useState(false);
-  const [joinToken, setJoinToken] = useState('');
-  const [joining, setJoining] = useState(false);
-  const [joinError, setJoinError] = useState('');
-
-  const [inviteInfo, setInviteInfo] = useState<{ orgId: string; token: string; expiresAt: string } | null>(null);
-
-  const [roomCreateOrgId, setRoomCreateOrgId] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [respondingId, setRespondingId] = useState<string | null>(null);
 
-  const [membersOrgId, setMembersOrgId] = useState<string | null>(null);
-  const membersOrg = orgs.find((o) => o.id === membersOrgId) ?? null;
-  const [memberActionLoading, setMemberActionLoading] = useState<string | null>(null);
-
-  const [confirmModal, setConfirmModal] = useState<{
-    title: string;
-    message?: string;
-    confirmText?: string;
-    destructive?: boolean;
-    onConfirm: () => void;
-  } | null>(null);
-
-  const [orgOrder, setOrgOrder] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('teamOrgOrder') ?? '[]'); } catch { return []; }
-  });
-  const [roomOrders, setRoomOrders] = useState<Record<string, string[]>>(() => {
-    try { return JSON.parse(localStorage.getItem('teamRoomOrders') ?? '{}'); } catch { return {}; }
-  });
-
-  const orderedOrgs = useMemo(() => {
-    const orderMap = new Map(orgOrder.map((id, i) => [id, i]));
-    return [...orgs]
-      .sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999))
-      .map((org) => {
-        const roomOrder = roomOrders[org.id];
-        if (!roomOrder) return org;
-        const roomMap = new Map(roomOrder.map((id, i) => [id, i]));
-        return { ...org, rooms: [...org.rooms].sort((a, b) => (roomMap.get(a.id) ?? 9999) - (roomMap.get(b.id) ?? 9999)) };
-      });
-  }, [orgs, orgOrder, roomOrders]);
-
-  const moveOrg = useCallback((orgId: string, direction: 'up' | 'down') => {
-    setOrgOrder((prev) => {
-      const base = prev.length > 0 ? prev : orgs.map((o) => o.id);
-      const idx = base.indexOf(orgId);
-      if (idx === -1) return base;
-      const next = [...base];
-      const swap = direction === 'up' ? idx - 1 : idx + 1;
-      if (swap < 0 || swap >= next.length) return next;
-      [next[idx], next[swap]] = [next[swap], next[idx]];
-      localStorage.setItem('teamOrgOrder', JSON.stringify(next));
-      return next;
-    });
-  }, [orgs]);
-
-  const moveRoom = useCallback((orgId: string, roomId: string, direction: 'up' | 'down') => {
-    setRoomOrders((prev) => {
-      const org = orgs.find((o) => o.id === orgId);
-      const base = prev[orgId] ?? org?.rooms.map((r) => r.id) ?? [];
-      const idx = base.indexOf(roomId);
-      if (idx === -1) return prev;
-      const next = [...base];
-      const swap = direction === 'up' ? idx - 1 : idx + 1;
-      if (swap < 0 || swap >= next.length) return prev;
-      [next[idx], next[swap]] = [next[swap], next[idx]];
-      const updated = { ...prev, [orgId]: next };
-      localStorage.setItem('teamRoomOrders', JSON.stringify(updated));
-      return updated;
-    });
-  }, [orgs]);
+  const { orderedOrgs, moveOrg, moveRoom } = useTeamOrder(orgs);
 
   const getToken = useCallback(() => {
     const token = localStorage.getItem('accessToken');
@@ -118,11 +55,10 @@ export default function TeamPage() {
     return token;
   }, [router]);
 
-  const loadOrgs = useCallback(async () => {
+  const loadOrgs = useCallback(() => {
     const token = getToken();
     if (!token) return;
-    try {
-      const loaded = await orgsApi.list(token);
+    return orgsApi.list(token).then((loaded) => {
       setOrgs(loaded);
       const counts: Record<string, number> = {};
       for (const org of loaded) {
@@ -133,28 +69,21 @@ export default function TeamPage() {
         }
       }
       setUnreadCounts(counts);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '불러오기 실패');
-    } finally {
-      setLoading(false);
-    }
+    }).catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
+      .finally(() => setLoading(false));
   }, [getToken]);
 
-  const loadPendingInvites = useCallback(async () => {
+  const loadPendingInvites = useCallback(() => {
     const token = getToken();
     if (!token) return;
-    try {
-      setPendingInvites(await orgsApi.getPendingInvites(token));
-    } catch { /* silent */ }
+    return orgsApi.getPendingInvites(token).then(setPendingInvites).catch(() => null);
   }, [getToken]);
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (!stored) { setShowLoginModal(true); setLoading(false); return; }
-    setMyUserId((JSON.parse(stored) as { id: string }).id);
+    if (!user) return;
     loadOrgs();
     loadPendingInvites();
-  }, [loadOrgs, loadPendingInvites]);
+  }, [loadOrgs, loadPendingInvites, user]);
 
   const handleRespondInvite = async (inviteId: string, accept: boolean) => {
     const token = getToken();
@@ -215,230 +144,23 @@ export default function TeamPage() {
     if (newTab === 'chat' && selectedRoomId) await loadMessages(selectedRoomId);
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const token = getToken();
-    if (!token || !createForm.name.trim()) return;
-    setCreating(true);
-    try {
-      const org = await orgsApi.create(token, { name: createForm.name.trim(), description: createForm.description.trim() || undefined });
-      setOrgs((prev) => [org, ...prev]);
-      setShowCreate(false);
-      setCreateForm({ name: '', description: '' });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '생성 실패');
-    } finally {
-      setCreating(false);
-    }
-  };
+  const {
+    showCreate, setShowCreate, createForm, setCreateForm, creating, handleCreate,
+    showJoin, setShowJoin, joinToken, setJoinToken, joining, joinError, handleJoin,
+    inviteInfo, setInviteInfo, handleCreateInvite, handleLeaveOrg,
+    roomCreateOrgId, setRoomCreateOrgId, handleCreateRoom, handleDeleteRoom,
+    membersOrg, setMembersOrgId, memberActionLoading, handleKickMember, handleTransferLeader, handleSetSubLeader,
+    confirmModal, setConfirmModal,
+  } = useTeamActions({
+    orgs, myUserId, getToken, setOrgs, setError, selectedOrgId, selectedRoomId,
+    clearSelection: () => { setSelectedOrgId(null); setSelectedRoomId(null); },
+  });
 
-  const handleCreateInvite = async (orgId: string) => {
-    const token = getToken();
-    if (!token) return;
-    try {
-      const info = await orgsApi.createInvite(token, orgId);
-      setInviteInfo({ orgId, ...info });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '초대 링크 생성 실패');
-    }
-  };
+  const token = useAccessToken() ?? '';
 
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const token = getToken();
-    if (!token || !joinToken.trim()) return;
-    setJoining(true);
-    setJoinError('');
-    try {
-      const org = await orgsApi.join(token, joinToken.trim());
-      if (org) setOrgs((prev) => [...prev, org]);
-      setShowJoin(false);
-      setJoinToken('');
-    } catch (e) {
-      setJoinError(e instanceof Error ? e.message : '가입 실패');
-    } finally {
-      setJoining(false);
-    }
-  };
+  useTeamPolling({ selectedRoomId, orgCount: orgs.length, setMessages, setOrgs, setUnreadCounts });
 
-  const handleLeaveOrg = (org: Organization) => {
-    const isLeader = org.createdBy === myUserId;
-    setConfirmModal({
-      title: isLeader ? `"${org.name}" 팀 삭제` : `"${org.name}" 나가기`,
-      message: isLeader ? '팀을 삭제하면 모든 채팅방이 함께 삭제됩니다.' : '팀에서 나가시겠습니까?',
-      confirmText: isLeader ? '삭제' : '나가기',
-      destructive: true,
-      onConfirm: async () => {
-        setConfirmModal(null);
-        const token = getToken();
-        if (!token) return;
-        try {
-          if (isLeader) {
-            await orgsApi.remove(token, org.id);
-          } else {
-            await orgsApi.leave(token, org.id);
-          }
-          setOrgs((prev) => prev.filter((o) => o.id !== org.id));
-          if (selectedOrgId === org.id) { setSelectedOrgId(null); setSelectedRoomId(null); }
-        } catch (e) {
-          setError(e instanceof Error ? e.message : '실패');
-        }
-      },
-    });
-  };
-
-  const handleKickMember = (orgId: string, memberUserId: string) => {
-    setConfirmModal({
-      title: '멤버 추방',
-      message: '해당 멤버를 팀에서 추방하시겠습니까?',
-      confirmText: '추방',
-      destructive: true,
-      onConfirm: async () => {
-        setConfirmModal(null);
-        const token = getToken();
-        if (!token) return;
-        setMemberActionLoading(memberUserId);
-        try {
-          await orgsApi.kickMember(token, orgId, memberUserId);
-          setOrgs((prev) =>
-            prev.map((o) => o.id === orgId ? { ...o, members: o.members.filter((m) => m.userId !== memberUserId) } : o),
-          );
-        } catch (e) {
-          setError(e instanceof Error ? e.message : '추방 실패');
-        } finally {
-          setMemberActionLoading(null);
-        }
-      },
-    });
-  };
-
-  const handleTransferLeader = (orgId: string, memberUserId: string) => {
-    setConfirmModal({
-      title: '방장 이전',
-      message: '방장 권한을 이 멤버에게 이전하시겠습니까? 이전 후 회원님은 일반 멤버가 됩니다.',
-      confirmText: '이전',
-      onConfirm: async () => {
-        setConfirmModal(null);
-        const token = getToken();
-        if (!token) return;
-        setMemberActionLoading(memberUserId);
-        try {
-          const updated = await orgsApi.transferLeader(token, orgId, memberUserId);
-          setOrgs((prev) => prev.map((o) => o.id === orgId ? updated : o));
-        } catch (e) {
-          setError(e instanceof Error ? e.message : '방장 이전 실패');
-        } finally {
-          setMemberActionLoading(null);
-        }
-      },
-    });
-  };
-
-  const handleSetSubLeader = async (orgId: string, memberUserId: string, isSubLeader: boolean) => {
-    const token = getToken();
-    if (!token) return;
-    setMemberActionLoading(memberUserId);
-    try {
-      const updated = await orgsApi.setSubLeader(token, orgId, memberUserId, isSubLeader);
-      setOrgs((prev) => prev.map((o) => o.id === orgId ? updated : o));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '부방장 설정 실패');
-    } finally {
-      setMemberActionLoading(null);
-    }
-  };
-
-  const handleCreateRoom = async (name: string) => {
-    if (!roomCreateOrgId) return;
-    const token = getToken();
-    if (!token) return;
-    const room = await roomsApi.create(token, { orgId: roomCreateOrgId, name });
-    setOrgs((prev) =>
-      prev.map((o) => o.id === roomCreateOrgId ? { ...o, rooms: [...o.rooms, room] } : o)
-    );
-    setRoomCreateOrgId(null);
-  };
-
-  const handleDeleteRoom = (roomId: string) => {
-    setConfirmModal({
-      title: '채팅방 삭제',
-      message: '채팅방을 삭제하면 모든 메시지가 함께 삭제됩니다.',
-      confirmText: '삭제',
-      destructive: true,
-      onConfirm: async () => {
-        setConfirmModal(null);
-        const token = getToken();
-        if (!token) return;
-        try {
-          await roomsApi.remove(token, roomId);
-          setOrgs((prev) =>
-            prev.map((o) => ({ ...o, rooms: o.rooms.filter((r) => r.id !== roomId) }))
-          );
-          if (selectedRoomId === roomId) { setSelectedRoomId(null); setSelectedOrgId(null); }
-        } catch (e) {
-          setError(e instanceof Error ? e.message : '삭제 실패');
-        }
-      },
-    });
-  };
-
-  const token = typeof window !== 'undefined' ? (localStorage.getItem('accessToken') ?? '') : '';
-
-  const selectedRoomIdRef = useRef(selectedRoomId);
-  useEffect(() => { selectedRoomIdRef.current = selectedRoomId; }, [selectedRoomId]);
-
-  // 현재 방 메시지 폴링 (3초) — 새 메시지 자동 반영
-  useEffect(() => {
-    if (!selectedRoomId) return;
-    const roomId = selectedRoomId;
-    const poll = async () => {
-      const tok = localStorage.getItem('accessToken');
-      if (!tok) return;
-      try {
-        const ordered = [...(await roomsApi.getMessages(tok, roomId))].reverse();
-        setMessages((prev) => {
-          if (
-            prev.length === ordered.length &&
-            prev[prev.length - 1]?.id === ordered[ordered.length - 1]?.id
-          ) return prev;
-          localStorage.setItem(`chatMsgCount_${roomId}`, ordered.length.toString());
-          return ordered;
-        });
-      } catch { /* ignore */ }
-    };
-    const id = setInterval(poll, 3000);
-    return () => clearInterval(id);
-  }, [selectedRoomId]);
-
-  // 팀 목록 폴링 (10초) — 새 방 추가·미열람 뱃지 업데이트
-  useEffect(() => {
-    if (orgs.length === 0) return;
-    const poll = async () => {
-      const tok = localStorage.getItem('accessToken');
-      if (!tok) return;
-      try {
-        const loaded = await orgsApi.list(tok);
-        setOrgs(loaded);
-        setUnreadCounts((prev) => {
-          const next = { ...prev };
-          for (const org of loaded) {
-            for (const room of org.rooms) {
-              if (room.id === selectedRoomIdRef.current) continue;
-              const stored = parseInt(localStorage.getItem(`chatMsgCount_${room.id}`) ?? '0', 10);
-              const unread = Math.max(0, room._count.messages - stored);
-              if (unread > 0) next[room.id] = unread;
-              else delete next[room.id];
-            }
-          }
-          return next;
-        });
-      } catch { /* ignore */ }
-    };
-    const id = setInterval(poll, 10000);
-    return () => clearInterval(id);
-  }, [orgs.length]);
-
-  if (loading) return <div className="py-12 text-center">로딩 중...</div>;
+  if (user === undefined || (user && loading)) return <div className="py-12 text-center">로딩 중...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -504,7 +226,7 @@ export default function TeamPage() {
         </div>
       </main>
 
-      {showLoginModal && (
+      {user === null && (
         <ConfirmModal title="로그인 필요" message="팀 기능을 사용하려면 로그인이 필요합니다." confirmText="로그인하기" onConfirm={() => router.push('/login')} onCancel={() => router.push('/')} />
       )}
       {showCreate && (

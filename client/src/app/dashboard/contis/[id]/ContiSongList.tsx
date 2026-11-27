@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { contisApi, type Conti, type ContiSong } from '@/lib/api';
+import { safeAttachmentUrl } from '@/lib/attachment-url';
 
 interface Props {
   conti: Conti;
@@ -74,6 +75,7 @@ export default function ContiSongList({ conti, contiId, token, onMove, onRemoveS
         <div className="space-y-2">
           {conti.songs.map((cs, index) => {
             const sheetOpen = expandedSheetId === cs.id;
+            const defaultSheetUrl = safeAttachmentUrl(cs.song.sheetMusicUrl);
             return (
               <div key={cs.id} className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                 <div className="flex items-center gap-2 px-4 py-3 sm:gap-3 sm:px-5 sm:py-4">
@@ -91,7 +93,7 @@ export default function ContiSongList({ conti, contiId, token, onMove, onRemoveS
                           {cs.tempo ?? cs.song.tempo} BPM
                         </span>
                       )}
-                      {(cs.sheets.length > 0 || cs.song.sheetMusicUrl) && (
+                      {(cs.sheets.length > 0 || defaultSheetUrl) && (
                         <button
                           onClick={() => setExpandedSheetId(sheetOpen ? null : cs.id)}
                           className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
@@ -138,7 +140,7 @@ export default function ContiSongList({ conti, contiId, token, onMove, onRemoveS
                   <div className="border-t border-gray-100 dark:border-gray-800">
                     {cs.sheets.length > 0 ? (
                       cs.sheets.map((sheet, si) => {
-                        const isPdf = sheet.url.toLowerCase().includes('.pdf');
+                        const url = safeAttachmentUrl(sheet.url);
                         return (
                           <div key={sheet.id} className={si > 0 ? 'border-t border-gray-100 dark:border-gray-800' : ''}>
                             <div className="print:hidden flex items-center justify-between px-4 py-1.5">
@@ -147,28 +149,16 @@ export default function ContiSongList({ conti, contiId, token, onMove, onRemoveS
                                 삭제
                               </button>
                             </div>
-                            {isPdf ? (
-                              <iframe src={sheet.url} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 악보 ${si + 1}`} />
-                            ) : (
-                              <div className="flex justify-center p-4">
-                                <img src={sheet.url} alt={`${cs.song.title} 악보 ${si + 1}`} className="max-w-full rounded-lg object-contain" />
-                              </div>
-                            )}
+                            {url && <SheetPreview url={url} title={`${cs.song.title} 악보 ${si + 1}`} />}
                           </div>
                         );
                       })
-                    ) : cs.song.sheetMusicUrl ? (
+                    ) : defaultSheetUrl ? (
                       <div>
                         <div className="print:hidden flex items-center px-4 py-1.5">
                           <span className="text-xs text-gray-400">악보보기</span>
                         </div>
-                        {cs.song.sheetMusicUrl.toLowerCase().includes('.pdf') ? (
-                          <iframe src={cs.song.sheetMusicUrl} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={`${cs.song.title} 악보보기`} />
-                        ) : (
-                          <div className="flex justify-center p-4">
-                            <img src={cs.song.sheetMusicUrl} alt={`${cs.song.title} 악보보기`} className="max-w-full rounded-lg object-contain" />
-                          </div>
-                        )}
+                        <SheetPreview url={defaultSheetUrl} title={`${cs.song.title} 악보보기`} />
                       </div>
                     ) : null}
                   </div>
@@ -180,5 +170,16 @@ export default function ContiSongList({ conti, contiId, token, onMove, onRemoveS
       )}
       <input ref={sheetInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleSheetUpload} />
     </>
+  );
+}
+
+function SheetPreview({ url, title }: { url: string; title: string }) {
+  if (new URL(url).pathname.toLowerCase().endsWith('.pdf')) {
+    return <iframe src={url} className="h-[70vh] w-full rounded-b-xl sm:h-[80vh]" title={title} />;
+  }
+  return (
+    <div className="flex justify-center p-4">
+      <img src={url} alt={title} className="max-w-full rounded-lg object-contain" />
+    </div>
   );
 }

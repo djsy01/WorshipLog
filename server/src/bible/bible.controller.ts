@@ -1,7 +1,21 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { IsString } from 'class-validator';
 import { BibleService } from './bible.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+
+class UpdateNoteDto {
+  @IsString()
+  note!: string;
+}
 
 @Controller('bible')
 export class BibleController {
@@ -29,7 +43,7 @@ export class BibleController {
   updateNote(
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,
-    @Body() dto: { note: string },
+    @Body() dto: UpdateNoteDto,
   ) {
     return this.bibleService.updateNote(userId, id, dto.note);
   }

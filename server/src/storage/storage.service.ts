@@ -53,7 +53,7 @@ export class StorageService {
       await unlink(target);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        this.logger.warn('업로드 파일 삭제에 실패했습니다.', error);
+        this.logger.warn('업로드 파일 삭제에 실패했습니다.');
       }
     }
   }

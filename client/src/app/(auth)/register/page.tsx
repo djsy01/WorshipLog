@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
+import { getPasswordValidationError } from '@/lib/password-validation';
 
 const inputCls =
     'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ' +
@@ -26,12 +27,9 @@ export default function RegisterPage() {
             setError('비밀번호가 일치하지 않습니다.');
             return;
         }
-        if (form.password.length < 8) {
-            setError('비밀번호는 8자 이상이어야 합니다.');
-            return;
-        }
-        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(form.password)) {
-            setError('비밀번호에 특수문자를 포함해주세요.');
+        const passwordError = getPasswordValidationError(form.password);
+        if (passwordError) {
+            setError(passwordError);
             return;
         }
 
@@ -101,9 +99,12 @@ export default function RegisterPage() {
                             value={form.password}
                             onChange={set('password')}
                             placeholder="8자 이상"
+                            aria-describedby="register-password-rules"
                             className={inputCls}
                         />
-                        <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-200">특수문자를 포함해주세요.</label>
+                        <p id="register-password-rules" className="mb-1 text-sm font-medium text-gray-500 dark:text-gray-200">
+                            영문, 숫자, 특수문자를 각각 1개 이상 포함해주세요. 최대 72바이트까지 사용할 수 있습니다.
+                        </p>
                     </div>
 
                     <div>

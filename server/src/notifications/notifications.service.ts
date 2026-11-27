@@ -14,7 +14,7 @@ export class NotificationsService implements OnModuleInit {
     const clientEmail = this.config.get<string>('FIREBASE_CLIENT_EMAIL');
     const privateKey = this.config.get<string>('FIREBASE_PRIVATE_KEY');
     if (!projectId || !clientEmail || !privateKey) {
-      this.logger.warn('Firebase credentials not set — push notifications disabled');
+      this.logger.warn('Firebase 설정이 없어 푸시 알림을 비활성화합니다.');
       return;
     }
     try {
@@ -28,12 +28,17 @@ export class NotificationsService implements OnModuleInit {
         });
       }
       this.initialized = true;
-    } catch (e) {
-      this.logger.error('Firebase init failed', e);
+    } catch {
+      this.logger.error('Firebase 초기화에 실패했습니다.');
     }
   }
 
-  async sendToToken(token: string, title: string, body: string, data?: Record<string, string>) {
+  async sendToToken(
+    token: string,
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ) {
     if (!this.initialized) return;
     try {
       await admin.messaging().send({
@@ -43,12 +48,17 @@ export class NotificationsService implements OnModuleInit {
         android: { priority: 'high', notification: { sound: 'default' } },
         apns: { payload: { aps: { sound: 'default', badge: 1 } } },
       });
-    } catch (e) {
-      this.logger.warn(`FCM send failed for token ${token.slice(0, 10)}…: ${e}`);
+    } catch {
+      this.logger.warn('푸시 알림 전송에 실패했습니다.');
     }
   }
 
-  async sendToTokens(tokens: string[], title: string, body: string, data?: Record<string, string>) {
+  async sendToTokens(
+    tokens: string[],
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ) {
     if (!this.initialized || tokens.length === 0) return;
     const chunks: string[][] = [];
     for (let i = 0; i < tokens.length; i += 500) {
@@ -63,8 +73,8 @@ export class NotificationsService implements OnModuleInit {
           android: { priority: 'high', notification: { sound: 'default' } },
           apns: { payload: { aps: { sound: 'default', badge: 1 } } },
         });
-      } catch (e) {
-        this.logger.warn('FCM multicast failed', e);
+      } catch {
+        this.logger.warn('그룹 푸시 알림 전송에 실패했습니다.');
       }
     }
   }

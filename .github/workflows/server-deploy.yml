@@ -1,24 +1,60 @@
 name: Server Deploy to Oracle Cloud
-
 on:
   push:
-    paths:
-      - 'server/**' # server 폴더 변경 시에만 작동
-
+    branches: [master]
+    paths: ['server/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: server-deploy-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  verify:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - run: npx eslint '{src,apps,libs,test}/**/*.ts'
+      - run: npm test -- --ci
+      - run: npm run build
+
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@master # SSH 접속용 오픈소스
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          VERIFIED_SHA: ${{ github.sha }}
         with:
-          host: ${{ secrets.HOST }} # Oracle Cloud IP
-          username: ubuntu # 우분투 계정명
-          key: ${{ secrets.SSH_KEY }} # SSH 개인키
+          host: ${{ secrets.HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_KEY }}
+          envs: VERIFIED_SHA
           script: |
-            cd ~/WorshipLog/server
-            git pull origin dev
-            npm install
+            set -euo pipefail
+            cd ~/WorshipLog
+            git fetch origin
+            git checkout master
+            git pull --ff-only origin master
+            test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+            git diff --quiet "$VERIFIED_SHA" HEAD -- server || { echo 'Master server files changed after verification.' >&2; exit 1; }
+            git diff --quiet HEAD -- server ':!server/tsconfig.build.tsbuildinfo' || { echo 'VM has local server changes.' >&2; exit 1; }
+            cd server
+            npm ci --include=dev
             npx prisma generate
             npm run build
             pm2 restart worshiplog-server
+            curl -fsS --retry 5 --retry-all-errors --retry-delay 2 --max-time 5 http://localhost:3000/api/health

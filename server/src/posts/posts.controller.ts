@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { CreateCommentDto, CreatePostDto } from './dto/create-post.dto';
 import { PostsService } from './posts.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
@@ -20,10 +30,7 @@ export class PostsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: { title?: string; category?: string; content: string; fileUrl?: string; isAnonymous?: boolean; meditationId?: string },
-  ) {
+  create(@CurrentUser('sub') userId: string, @Body() dto: CreatePostDto) {
     return this.postsService.create(userId, dto);
   }
 
@@ -35,7 +42,10 @@ export class PostsController {
 
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id/comments')
-  getComments(@CurrentUser('sub') userId: string | undefined, @Param('id') postId: string) {
+  getComments(
+    @CurrentUser('sub') userId: string | undefined,
+    @Param('id') postId: string,
+  ) {
     return this.postsService.getComments(userId, postId);
   }
 
@@ -44,7 +54,7 @@ export class PostsController {
   createComment(
     @CurrentUser('sub') userId: string,
     @Param('id') postId: string,
-    @Body() dto: { content: string; isAnonymous?: boolean },
+    @Body() dto: CreateCommentDto,
   ) {
     return this.postsService.createComment(userId, postId, dto);
   }

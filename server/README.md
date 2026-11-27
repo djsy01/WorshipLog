@@ -98,7 +98,9 @@ FIREBASE_PRIVATE_KEY=<firebase admin sdk private key>
 ```
 
 > **주의**: `CLIENT_URL`은 쉼표로 구분하여 다중 origin 허용 (CORS)
-> **주의**: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` 누락 시 로그인 500 에러 발생
+> JWT 비밀키는 서로 다른 32바이트 이상의 임의 값으로 설정합니다. 예: 각 키에 `openssl rand -hex 32` 실행. 키 구성이 유효하지 않으면 서버가 시작되지 않습니다. 키를 교체하면 기존 토큰이 만료되므로 재로그인이 필요합니다.
+
+서버는 기본적으로 `127.0.0.1`에 바인드합니다. Oracle VM에서는 `NODE_ENV=production`을 유지하고 nginx가 루프백으로 프록시하도록 설정합니다. 로컬 기기 테스트에서만 필요에 따라 `HOST=0.0.0.0`을 설정합니다.
 
 ---
 

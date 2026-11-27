@@ -1,4 +1,5 @@
 import { communityApi, type Post } from '@/lib/api';
+import { safeAttachmentUrl } from '@/lib/attachment-url';
 import CommunityComments from './CommunityComments';
 import { SECTIONS } from './CommunitySidebar';
 
@@ -30,6 +31,8 @@ interface Props {
 }
 
 export default function CommunityPostDetail({ post, token, onBack, onDelete }: Props) {
+  const fileUrl = safeAttachmentUrl(post.fileUrl);
+
   async function remove() {
     if (!confirm('게시글을 삭제할까요?')) return;
     await communityApi.remove(token, post.id);
@@ -73,13 +76,13 @@ export default function CommunityPostDetail({ post, token, onBack, onDelete }: P
 
         <div className="border-t border-gray-100 dark:border-gray-800 pt-5">
           <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{post.content}</p>
-          {post.fileUrl && (
+          {fileUrl && (
             <div className="mt-4">
-              {/\.(jpg|jpeg|png|gif|webp)$/i.test(post.fileUrl) ? (
-                <img src={post.fileUrl} alt="첨부 이미지" className="max-w-full rounded-xl border border-gray-100 dark:border-gray-800" />
+              {/\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl) ? (
+                <img src={fileUrl} alt="첨부 이미지" className="max-w-full rounded-xl border border-gray-100 dark:border-gray-800" />
               ) : (
                 <a
-                  href={post.fileUrl}
+                  href={fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-lg border border-violet-200 dark:border-violet-800 px-4 py-2 text-sm text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition"

@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { songsApi, contisApi, bibleApi, type Song, type BibleVerse } from '@/lib/api';
 import { SongsFormModal } from '@/app/dashboard/songs/SongsFormModal';
+import { emptySongForm } from '@/app/dashboard/songs/song-form';
+import { readTokenClaims } from '@/lib/token-claims';
 
 const KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B', 'Cm', 'Dm', 'Em', 'Fm', 'Gm', 'Am', 'Bm'];
-const EMPTY_FORM = { title: '', artist: '', defaultKey: '', tempo: '', lyrics: '', scriptureRef: '', isPublic: true };
 
 interface Props {
   contiId: string;
@@ -16,7 +17,7 @@ interface Props {
 
 export default function AddSongPanel({ contiId, token, onAdd, onClose }: Props) {
   const [allSongs, setAllSongs] = useState<Song[]>([]);
-  const [loadingSongs, setLoadingSongs] = useState(false);
+  const [loadingSongs, setLoadingSongs] = useState(true);
   const [songSearch, setSongSearch] = useState('');
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [addingKey, setAddingKey] = useState('');
@@ -24,22 +25,15 @@ export default function AddSongPanel({ contiId, token, onAdd, onClose }: Props) 
   const [adding, setAdding] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(emptySongForm);
   const [saving, setSaving] = useState(false);
   const [sheetFile, setSheetFile] = useState<File | null>(null);
   const [verse, setVerse] = useState<BibleVerse | null>(null);
 
 
-  const loadSongs = useCallback(async () => {
-    setLoadingSongs(true);
-    try {
-      setAllSongs(await songsApi.list(token));
-    } finally {
-      setLoadingSongs(false);
-    }
+  useEffect(() => {
+    songsApi.list(token).then(setAllSongs).catch(() => null).finally(() => setLoadingSongs(false));
   }, [token]);
-
-  useEffect(() => { loadSongs(); }, [loadSongs]);
   useEffect(() => { if (token) bibleApi.today(token).then(setVerse).catch(() => null); }, [token]);
 
   const handleAdd = async () => {
@@ -76,7 +70,7 @@ export default function AddSongPanel({ contiId, token, onAdd, onClose }: Props) 
       setAllSongs(songs);
       setSelectedSong(created);
       setShowCreate(false);
-      setForm(EMPTY_FORM);
+      setForm(emptySongForm);
       setSheetFile(null);
     } catch (e) {
       alert((e as Error).message);
@@ -131,7 +125,7 @@ export default function AddSongPanel({ contiId, token, onAdd, onClose }: Props) 
                   <p className="mb-4 text-sm text-gray-400">{songSearch ? '검색 결과가 없습니다.' : '등록된 찬양이 없습니다.'}</p>
                   <button
                     onClick={() => {
-                      setForm({ ...EMPTY_FORM, title: songSearch });
+                      setForm({ ...emptySongForm, title: songSearch });
                       setShowCreate(true);
                     }}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
@@ -139,7 +133,7 @@ export default function AddSongPanel({ contiId, token, onAdd, onClose }: Props) 
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
-                    "{songSearch || '새 찬양'}" 등록하기
+                    &quot;{songSearch || '새 찬양'}&quot; 등록하기
                   </button>
                 </div>
               ) : (
@@ -216,9 +210,9 @@ export default function AddSongPanel({ contiId, token, onAdd, onClose }: Props) 
         editingSong={null}
         token={token}
         verse={verse}
-        onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); setSheetFile(null); }}
+        onClose={() => { setShowCreate(false); setForm(emptySongForm); setSheetFile(null); }}
         onSave={() => handleCreate()}
-        isAdmin={true}
+        isAdmin={readTokenClaims(token)?.role === 'admin'}
         form={form}
         onFormChange={(field, value) => setForm((f) => ({ ...f, [field]: value }))}
         saving={saving}

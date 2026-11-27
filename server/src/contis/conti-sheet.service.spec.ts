@@ -9,7 +9,7 @@ describe('ContiSheetService', () => {
     path: 'upload.tmp',
   } as Express.Multer.File;
   const tx = {
-    $queryRaw: jest.fn(),
+    $queryRaw: jest.fn<Promise<{ id: string }[]>, unknown[]>(),
     contiSongSheet: {
       aggregate: jest.fn(),
       create: jest.fn(),

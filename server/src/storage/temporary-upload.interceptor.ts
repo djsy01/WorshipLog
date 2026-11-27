@@ -49,8 +49,7 @@ export class TemporaryUploadInterceptor implements NestInterceptor<unknown> {
       throw error;
     } finally {
       await rm(req.uploadDirectory, { recursive: true, force: true }).catch(
-        (error: unknown) =>
-          this.logger.warn('임시 파일 삭제에 실패했습니다.', error),
+        () => this.logger.warn('임시 파일 삭제에 실패했습니다.'),
       );
     }
   }

@@ -1,9 +1,15 @@
-import { Controller, Post, UploadedFile } from '@nestjs/common';
+import {
+  Controller,
+  INestApplication,
+  Post,
+  UploadedFile,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { mkdtempSync, readdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import request from 'supertest';
+import { App } from 'supertest/types';
 import { DiskUpload } from './disk-upload.decorator';
 import { StorageService } from './storage.service';
 import { validateUpload } from './upload-media';
@@ -42,7 +48,7 @@ it.each([
       controllers: [TestUploadController],
       providers: [{ provide: StorageService, useValue: { root } }],
     }).compile();
-    const app = module.createNestApplication();
+    const app = module.createNestApplication<INestApplication<App>>();
     try {
       await app.init();
       const result = await request(app.getHttpServer())

@@ -2,7 +2,7 @@ name: Flutter Build & Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'apps/**' # apps 폴더 내 코드가 수정될 때만 작동
 

@@ -6,14 +6,20 @@ import Link from 'next/link';
 import { contisApi, type Conti } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import ConfirmModal from '@/components/ConfirmModal';
+import { useStoredUser } from '@/lib/stored-user';
 
 export default function ContisPage() {
+    const user = useStoredUser();
+    return <ContisContent key={user?.id} user={user} />;
+}
+
+function ContisContent({ user }: { user: ReturnType<typeof useStoredUser> }) {
     const router = useRouter();
     const [contis, setContis] = useState<Conti[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadingContis, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [showLoginModal, setShowLoginModal] = useState(false);
-    const [myUserId, setMyUserId] = useState('');
+    const loading = user === undefined || (user !== null && loadingContis);
+    const myUserId = user?.id ?? '';
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     // 생성 모달
@@ -25,29 +31,15 @@ export default function ContisPage() {
         return localStorage.getItem('accessToken');
     }, []);
 
-    const loadContis = useCallback(async () => {
+    useEffect(() => {
+        if (!user) return;
         const token = getToken();
         if (!token) return;
-        try {
-            const data = await contisApi.list(token);
-            setContis(data);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : '불러오기 실패');
-        } finally {
-            setLoading(false);
-        }
-    }, [getToken]);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        if (!stored) {
-            setShowLoginModal(true);
-            setLoading(false);
-            return;
-        }
-        setMyUserId((JSON.parse(stored) as { id: string }).id);
-        loadContis();
-    }, [loadContis]);
+        contisApi.list(token)
+            .then(setContis)
+            .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
+            .finally(() => setLoading(false));
+    }, [getToken, user]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -104,7 +96,7 @@ export default function ContisPage() {
                     onCancel={() => setConfirmDeleteId(null)}
                 />
             )}
-            {showLoginModal && (
+            {user === null && (
                 <ConfirmModal
                     title="로그인이 필요합니다"
                     message="콘티 기능을 이용하려면 로그인이 필요합니다."

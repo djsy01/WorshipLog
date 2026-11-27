@@ -1,4 +1,5 @@
 import { Song } from '@/lib/api';
+import { safeAttachmentUrl } from '@/lib/attachment-url';
 
 interface SongsDetailModalProps {
   song: Song | null;
@@ -12,6 +13,7 @@ interface SongsDetailModalProps {
 
 export function SongsDetailModal({ song, onClose, onEdit, onDelete, userId, userRole, token }: SongsDetailModalProps) {
   if (!song) return null;
+  const sheetUrl = safeAttachmentUrl(song.sheetMusicUrl);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -58,12 +60,12 @@ export function SongsDetailModal({ song, onClose, onEdit, onDelete, userId, user
         </div>
 
         {/* 악보 */}
-        {song.sheetMusicUrl && (
+        {sheetUrl && (
           <div className="border-t border-gray-100 dark:border-gray-800 px-6 py-4">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">악보</p>
-            {song.sheetMusicUrl.toLowerCase().includes('.pdf') ? (
+            {new URL(sheetUrl).pathname.toLowerCase().endsWith('.pdf') ? (
               <a
-                href={song.sheetMusicUrl}
+                href={sheetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 px-3 py-1.5 text-sm font-medium text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-900/20 transition"
@@ -76,7 +78,7 @@ export function SongsDetailModal({ song, onClose, onEdit, onDelete, userId, user
               </a>
             ) : (
               <img
-                src={song.sheetMusicUrl}
+                src={sheetUrl}
                 alt={`${song.title} 악보`}
                 className="w-full rounded-lg border border-gray-100 dark:border-gray-800"
               />

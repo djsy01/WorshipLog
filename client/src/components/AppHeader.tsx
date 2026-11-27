@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
+import { clearSession } from '@/lib/api/session';
 import ConfirmModal from '@/components/ConfirmModal';
+import { useStoredUser } from '@/lib/stored-user';
 
 function PrismLogo({ className = 'w-10 h-10' }: { className?: string }) {
     return (
@@ -36,14 +38,8 @@ interface AppHeaderProps {
 
 export default function AppHeader({ page }: AppHeaderProps) {
     const router = useRouter();
-    const [userName, setUserName] = useState('');
+    const userName = useStoredUser()?.name;
     const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        if (stored) setUserName((JSON.parse(stored) as { name: string }).name);
-    }, []);
 
     const handleLogout = async () => {
         const token = localStorage.getItem('accessToken') ?? '';
@@ -52,7 +48,7 @@ export default function AppHeader({ page }: AppHeaderProps) {
         } catch {
             /* 무시 */
         }
-        localStorage.clear();
+        clearSession();
         setShowLogoutModal(false);
         window.location.replace('/dashboard');
     };

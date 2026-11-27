@@ -1,4 +1,4 @@
-import { request, authHeaders, API_URL } from './request';
+import { request, authHeaders, uploadFile } from './request';
 import type { Song } from './songs';
 
 export interface ContiSongSheet {
@@ -61,18 +61,8 @@ export const contisApi = {
   reorderSongs: (token: string, contiId: string, ids: string[]) =>
     request<Conti>(`/contis/${contiId}/songs/reorder`, { method: 'PUT', headers: authHeaders(token), body: JSON.stringify({ ids }) }),
 
-  uploadContiSheet: async (token: string, contiId: string, contiSongId: string, file: File): Promise<ContiSong> => {
-    const form = new FormData();
-    form.append('file', file);
-    const res = await fetch(`${API_URL}/contis/${contiId}/songs/${contiSongId}/sheet`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message ?? '업로드 실패');
-    return data as ContiSong;
-  },
+  uploadContiSheet: (token: string, contiId: string, contiSongId: string, file: File) =>
+    uploadFile<ContiSong>(`/contis/${contiId}/songs/${contiSongId}/sheet`, token, file),
 
   deleteContiSheet: (token: string, contiId: string, contiSongId: string, sheetId: string) =>
     request<ContiSong>(`/contis/${contiId}/songs/${contiSongId}/sheet/${sheetId}`, { method: 'DELETE', headers: authHeaders(token) }),

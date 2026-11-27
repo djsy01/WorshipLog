@@ -1,16 +1,23 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ServerResponse } from 'http';
 import { AppModule } from './app.module';
 import { StorageService } from './storage/storage.service';
+import { configureHttp } from './common/http/configure-http';
+import { JwtConfigurationError } from './auth/jwt-settings';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    abortOnError: false,
+    bodyParser: false,
+    logger: false,
+  });
   app.set('trust proxy', 'loopback');
   const production = process.env.NODE_ENV === 'production';
   const port = Number(process.env.PORT || '3000');
-  const host = process.env.HOST || (production ? '127.0.0.1' : '0.0.0.0');
+  const host = process.env.HOST || '127.0.0.1';
+  configureHttp(app, process.env.CLIENT_URL);
   if (!production) {
     app.useStaticAssets(app.get(StorageService).root, {
       prefix: '/uploads',
@@ -21,25 +28,15 @@ async function bootstrap() {
       },
     });
   }
-  app.setGlobalPrefix('api');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  const allowedOrigins = (process.env.CLIENT_URL ?? 'http://localhost:3001')
-    .split(',')
-    .map((s) => s.trim());
-  app.enableCors({
-    origin: (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void,
-    ) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS blocked: ${origin}`));
-      }
-    },
-    credentials: true,
-  });
   await app.listen(port, host);
-  console.log(`Server running on http://localhost:${port}/api`);
+  app.useLogger(new ConsoleLogger());
+  console.log(`서버가 ${port}번 포트에서 실행 중입니다.`);
 }
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  const message =
+    error instanceof JwtConfigurationError
+      ? error.message
+      : '서버를 시작할 수 없습니다.';
+  process.stderr.write(`${message}\n`);
+  process.exit(1);
+});

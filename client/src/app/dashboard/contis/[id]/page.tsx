@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { contisApi, orgsApi, type Conti, type ContiSong, type Organization } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
 import ConfirmModal from '@/components/ConfirmModal';
+import { useStoredUser } from '@/lib/stored-user';
 import ContiPrintLayout from './ContiPrintLayout';
 import ContiInfoCard from './ContiInfoCard';
 import ContiSongList from './ContiSongList';
@@ -22,7 +23,7 @@ export default function ContiEditPage() {
   const [error, setError] = useState('');
   const [showAddSong, setShowAddSong] = useState(false);
   const [editingCs, setEditingCs] = useState<ContiSong | null>(null);
-  const [myUserId, setMyUserId] = useState('');
+  const myUserId = useStoredUser()?.id ?? '';
   const [myOrgs, setMyOrgs] = useState<Organization[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [loadingRoomId, setLoadingRoomId] = useState<string | null>(null);
@@ -35,22 +36,16 @@ export default function ContiEditPage() {
     return token;
   }, [router]);
 
-  const loadConti = useCallback(async () => {
+  const loadConti = useCallback(() => {
     const token = getToken();
     if (!token) return;
-    try {
-      const data = await contisApi.get(token, contiId);
-      setConti(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '불러오기 실패');
-    } finally {
-      setLoading(false);
-    }
+    return contisApi.get(token, contiId)
+      .then(setConti)
+      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
+      .finally(() => setLoading(false));
   }, [getToken, contiId]);
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (stored) setMyUserId((JSON.parse(stored) as { id: string }).id);
     const token = localStorage.getItem('accessToken');
     if (token) orgsApi.list(token).then(setMyOrgs).catch(() => null);
     loadConti();

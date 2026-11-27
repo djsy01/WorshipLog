@@ -24,20 +24,14 @@ export default function HistoryPage() {
     return token;
   }, [router]);
 
-  const loadHistory = useCallback(async () => {
+  useEffect(() => {
     const token = getToken();
     if (!token) return;
-    try {
-      const data = await historyApi.list(token);
-      setRecords(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '불러오기 실패');
-    } finally {
-      setLoading(false);
-    }
+    historyApi.list(token)
+      .then(setRecords)
+      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'))
+      .finally(() => setLoading(false));
   }, [getToken]);
-
-  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('이 기록을 삭제할까요?')) return;

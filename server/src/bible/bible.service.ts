@@ -23,7 +23,9 @@ export class BibleService {
     return verses[index];
   }
 
-  async getVerseOfDay(userId: string): Promise<BibleVerse & { meditationId: string }> {
+  async getVerseOfDay(
+    userId: string,
+  ): Promise<BibleVerse & { meditationId: string }> {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -43,7 +45,13 @@ export class BibleService {
 
     const v = this.getRandomVerse();
     const meditation = await this.prisma.meditation.create({
-      data: { userId, book: v.book, chapter: v.chapter, verse: v.verse, content: v.content },
+      data: {
+        userId,
+        book: v.book,
+        chapter: v.chapter,
+        verse: v.verse,
+        content: v.content,
+      },
     });
     return { ...v, meditationId: meditation.id };
   }
@@ -66,7 +74,10 @@ export class BibleService {
   // 여러 구절은 쉼표로 구분 가능: "시 23:1, 빌 4:13"
   searchByRef(ref: string): BibleVerse[] {
     const results: BibleVerse[] = [];
-    const parts = ref.split(',').map((p) => p.trim()).filter(Boolean);
+    const parts = ref
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
 
     for (const part of parts) {
       const match = part.match(/^(.+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/);

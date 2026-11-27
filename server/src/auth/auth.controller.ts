@@ -1,5 +1,12 @@
-import { Body, Controller, Post, Patch, Query, UseGuards } from '@nestjs/common';
-import { IsEmail } from 'class-validator';
+import {
+  Body,
+  Controller,
+  Post,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { IsEmail, IsString, MaxLength } from 'class-validator';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -11,6 +18,12 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 class ResendDto {
   @IsEmail()
   email!: string;
+}
+
+class FcmTokenDto {
+  @IsString()
+  @MaxLength(4096)
+  token!: string;
 }
 
 @UseGuards(ThrottlerGuard)
@@ -49,8 +62,8 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('fcm-token')
-  updateFcmToken(@CurrentUser('sub') userId: string, @Body('token') token: string) {
-    return this.authService.updateFcmToken(userId, token);
+  updateFcmToken(@CurrentUser('sub') userId: string, @Body() dto: FcmTokenDto) {
+    return this.authService.updateFcmToken(userId, dto.token);
   }
 
   @UseGuards(JwtRefreshGuard)

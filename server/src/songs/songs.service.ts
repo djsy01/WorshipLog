@@ -25,7 +25,11 @@ function matchesScriptureSearch(ref: string, search: string): boolean {
       const refBook = chRange[1].trim().toLowerCase();
       const start = parseInt(chRange[2]);
       const end = parseInt(chRange[3]);
-      if (refBook === searchBook && searchChapter >= start && searchChapter <= end) {
+      if (
+        refBook === searchBook &&
+        searchChapter >= start &&
+        searchChapter <= end
+      ) {
         return true;
       }
     }
@@ -61,7 +65,10 @@ export class SongsService {
       return this.prisma.song.findMany({ where, orderBy: { title: 'asc' } });
     }
 
-    const songs = await this.prisma.song.findMany({ where, orderBy: { title: 'asc' } });
+    const songs = await this.prisma.song.findMany({
+      where,
+      orderBy: { title: 'asc' },
+    });
 
     const q = search.toLowerCase();
     return songs.filter(
@@ -83,7 +90,12 @@ export class SongsService {
     return song;
   }
 
-  async update(userId: string, userRole: string, id: string, dto: UpdateSongDto) {
+  async update(
+    userId: string,
+    userRole: string,
+    id: string,
+    dto: UpdateSongDto,
+  ) {
     const song = await this.prisma.song.findUnique({ where: { id } });
     if (!song) throw new NotFoundException('찬양을 찾을 수 없습니다.');
     if (userRole !== 'admin' && song.createdBy !== userId) {

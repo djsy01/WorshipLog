@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { communityApi, type Post } from '@/lib/api';
 import AppHeader from '@/components/AppHeader';
+import { useAccessToken } from '@/lib/stored-user';
 import { CommunitySidebar, SECTIONS } from './CommunitySidebar';
 import CommunityPostList from './CommunityPostList';
 import CommunityWriteForm from './CommunityWriteForm';
@@ -26,6 +27,7 @@ function getToken() {
 
 export default function CommunityPage() {
   const router = useRouter();
+  const token = useAccessToken() ?? '';
   const [category, setCategory] = useState('free');
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [view, setView] = useState<View>('list');
@@ -34,7 +36,7 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [cursor, setCursor] = useState<string | undefined>();
   const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const loadPosts = useCallback(
     async (reset = false) => {
@@ -55,28 +57,31 @@ export default function CommunityPage() {
         setLoading(false);
       }
     },
-    [category, cursor], // eslint-disable-line react-hooks/exhaustive-deps
+    [category, cursor],
   );
 
   useEffect(() => {
+    let active = true;
+    communityApi
+      .list(getToken(), category)
+      .then((data) => {
+        if (!active) return;
+        if (data.length < 20) setHasMore(false);
+        setPosts(data);
+        setCursor(data.length > 0 ? data[data.length - 1].id : undefined);
+      })
+      .catch(() => null)
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [category, reloadTrigger]);
+
+  function handleSelectCategory(key: string) {
     setPosts([]);
     setHasMore(true);
     setCursor(undefined);
     setView('list');
     setSelectedPost(null);
     setLoading(true);
-    communityApi
-      .list(getToken(), category)
-      .then((data) => {
-        if (data.length < 20) setHasMore(false);
-        setPosts(data);
-        setCursor(data.length > 0 ? data[data.length - 1].id : undefined);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [category, reloadTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleSelectCategory(key: string) {
     setCategory(key);
     setReloadTrigger((t) => t + 1);
     setSidebarOpen(false);
@@ -135,7 +140,7 @@ export default function CommunityPage() {
             {view === 'list' && (
               <CommunityPostList
                 category={category}
-                token={getToken()}
+                token={token}
                 posts={posts}
                 hasMore={hasMore}
                 loading={loading}
@@ -147,7 +152,7 @@ export default function CommunityPage() {
             {view === 'write' && (
               <CommunityWriteForm
                 category={category}
-                token={getToken()}
+                token={token}
                 onSubmit={(post) => { setPosts((prev) => [post, ...prev]); setView('list'); }}
                 onCancel={() => setView('list')}
               />
@@ -155,7 +160,7 @@ export default function CommunityPage() {
             {view === 'detail' && selectedPost && (
               <CommunityPostDetail
                 post={selectedPost}
-                token={getToken()}
+                token={token}
                 onBack={() => setView('list')}
                 onDelete={(id) => { setPosts((prev) => prev.filter((p) => p.id !== id)); setView('list'); setSelectedPost(null); }}
               />

@@ -1,14 +1,33 @@
-import { Controller, Get, Post, Delete, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
+import { IsBoolean } from 'class-validator';
+import { OrganizationInvitesService } from './organization-invites.service';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrgDto } from './dto/create-org.dto';
 import { InviteEmailDto } from './dto/invite-email.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
+class SetSubLeaderDto {
+  @IsBoolean()
+  isSubLeader!: boolean;
+}
+
 @UseGuards(JwtAuthGuard)
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private orgsService: OrganizationsService) {}
+  constructor(
+    private orgsService: OrganizationsService,
+    private invitesService: OrganizationInvitesService,
+  ) {}
 
   @Post()
   create(@CurrentUser('sub') userId: string, @Body() dto: CreateOrgDto) {
@@ -22,7 +41,7 @@ export class OrganizationsController {
 
   @Get('invites')
   getMyPendingInvites(@CurrentUser('sub') userId: string) {
-    return this.orgsService.getMyPendingInvites(userId);
+    return this.invitesService.getMyPendingInvites(userId);
   }
 
   @Get(':id')
@@ -37,7 +56,7 @@ export class OrganizationsController {
 
   @Post(':id/invite')
   createInvite(@CurrentUser('sub') userId: string, @Param('id') orgId: string) {
-    return this.orgsService.createInvite(userId, orgId);
+    return this.invitesService.createInvite(userId, orgId);
   }
 
   @Post(':id/invite-email')
@@ -46,22 +65,28 @@ export class OrganizationsController {
     @Param('id') orgId: string,
     @Body() dto: InviteEmailDto,
   ) {
-    return this.orgsService.inviteByEmail(userId, orgId, dto.email);
+    return this.invitesService.inviteByEmail(userId, orgId, dto.email);
   }
 
   @Post('join/:token')
   join(@CurrentUser('sub') userId: string, @Param('token') token: string) {
-    return this.orgsService.joinByToken(userId, token);
+    return this.invitesService.joinByToken(userId, token);
   }
 
   @Post('invites/:inviteId/accept')
-  acceptInvite(@CurrentUser('sub') userId: string, @Param('inviteId') inviteId: string) {
-    return this.orgsService.respondToInvite(userId, inviteId, true);
+  acceptInvite(
+    @CurrentUser('sub') userId: string,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return this.invitesService.respondToInvite(userId, inviteId, true);
   }
 
   @Post('invites/:inviteId/reject')
-  rejectInvite(@CurrentUser('sub') userId: string, @Param('inviteId') inviteId: string) {
-    return this.orgsService.respondToInvite(userId, inviteId, false);
+  rejectInvite(
+    @CurrentUser('sub') userId: string,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return this.invitesService.respondToInvite(userId, inviteId, false);
   }
 
   @Delete(':id/leave')
@@ -92,8 +117,13 @@ export class OrganizationsController {
     @CurrentUser('sub') userId: string,
     @Param('id') orgId: string,
     @Param('memberId') memberId: string,
-    @Body('isSubLeader') isSubLeader: boolean,
+    @Body() dto: SetSubLeaderDto,
   ) {
-    return this.orgsService.setSubLeader(userId, orgId, memberId, isSubLeader);
+    return this.orgsService.setSubLeader(
+      userId,
+      orgId,
+      memberId,
+      dto.isSubLeader,
+    );
   }
 }

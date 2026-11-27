@@ -1,4 +1,9 @@
-import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -30,8 +35,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    this.client.on('error', (err) => {
-      this.logger.error(`Redis error: ${err.message}`);
+    this.client.on('error', () => {
+      this.logger.error('Redis 연결에 실패했습니다.');
     });
   }
 
@@ -49,6 +54,24 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     } else {
       await this.client.set(key, value);
     }
+  }
+
+  async replaceIfEqual(
+    key: string,
+    current: string,
+    next: string,
+    ttl: number,
+  ) {
+    const updated = await this.client.eval(
+      "if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end " +
+        "return redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3]) and 1",
+      1,
+      key,
+      current,
+      next,
+      ttl,
+    );
+    return updated === 1;
   }
 
   async del(key: string): Promise<void> {
