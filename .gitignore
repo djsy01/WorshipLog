@@ -12,6 +12,7 @@ ehthumbs.db       # Windows
 *.swp
 *.swo
 *.lock
+!/apps/pubspec.lock
 
 # VSCode / IDE
 .vscode/

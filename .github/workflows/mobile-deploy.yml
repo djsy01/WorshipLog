@@ -5,18 +5,34 @@ on:
     branches: [master]
     paths:
       - 'apps/**' # apps 폴더 내 코드가 수정될 때만 작동
+  pull_request:
+    branches: [master]
+    paths:
+      - 'apps/**'
+      - '.github/workflows/mobile-deploy.yml'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          flutter-version: '3.41.9'
+
+      - name: Configure Flutter JDK
+        run: flutter config --jdk-dir="$JAVA_HOME"
 
       - name: Install dependencies
         working-directory: apps # apps 폴더로 이동
@@ -27,7 +43,7 @@ jobs:
         run: flutter build appbundle --release
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: android-release
           path: apps/build/app/outputs/bundle/release/app-release.aab
